@@ -12,7 +12,7 @@ because the program source code is relatively easy to understand
 
 # usage
 
-you need makefile first.
+you have to compile the program and i provide the make file.
 
 ```
 $ make init
@@ -30,6 +30,10 @@ if you feel confused, you can get help with:
 ```
 $ ./avalyn help
 ```
+
+# features
+- easily back up all the posts.
+- lock some content access with password.
 
 # third-party libraries
 

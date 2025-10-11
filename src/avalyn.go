@@ -14,17 +14,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// i'm not sure about implementing the configure file,
-// so i had to do that in the source code directly.
-
-var version string = "beta"
-// register in the browser: 0 for no, 1 for yes
-var register_browser_mode int = 0
-
-// i bet you already know what they means
-var title string = "avalyn"
-var subtitle string = "an absurd web"
-
 var db *sql.DB
 
 type Post struct {
@@ -132,14 +121,6 @@ func main() {
 		return
 	} else if os.Args[1] == "-b" || os.Args[1] == "backup" {
 		backup()
-	} else if os.Args[1] == "-h" || os.Args[1] == "help" {
-		fmt.Println("usage: avalyn $flag")
-		fmt.Println("backup, -b ++ backup")
-		fmt.Println("help, -h ++ help")
-		fmt.Println("register, -r ++ register an account")
-		fmt.Println("serve, -s ++ serve the program")
-		fmt.Println("version, -v ++ about avalyn")
-		return
 	} else if os.Args[1] == "-v" || os.Args[1] == "version" {
 		fmt.Printf("avalyn - %s\n", version)
 		fmt.Println("github.com/radhityax/avalyn")
@@ -148,7 +129,11 @@ func main() {
 		registerAccount()
 		return
 	} else {
-		fmt.Println("wrong option. see -h flag for help")
+		fmt.Println("usage: avalyn $flag")
+		fmt.Println("backup, -b ++ backup")
+		fmt.Println("register, -r ++ register an account")
+		fmt.Println("serve, -s ++ serve the program")
+		fmt.Println("version, -v ++ about avalyn")
 		return
 	}
 }
@@ -282,17 +267,17 @@ func pageRouter(option int) http.HandlerFunc {
 		}
 		if strings.HasSuffix(path, "/unlock") {
 			if option == 1 {
-			pageUnlock(1)(w, r)
-		} else if option == 2 {
-			pageUnlock(2)(w, r)
-		}
+				pageUnlock(1)(w, r)
+			} else if option == 2 {
+				pageUnlock(2)(w, r)
+			}
 			return
 		}
 		if option == 1 {
-		Page(1)(w, r)
-	} else if option == 2 {
-		Page(2)(w, r)
-	}
+			Page(1)(w, r)
+		} else if option == 2 {
+			Page(2)(w, r)
+		}
 	}
 }
 
