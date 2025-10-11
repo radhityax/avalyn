@@ -1,0 +1,23 @@
+<title>edit post: {{.Title}}</title>
+<body>
+	<main>
+	<h1>Edit Post</h1>
+	<form method="POST">
+		<label>Title:</label><br>
+		<input type="text" name="title" value="{{.Title}}"><br><br>
+
+		<label>Content 
+			<a href="https://www.markdownguide.org/basic-syntax/"
+			   rel="nofollow" target="_blank">Markdown</a>:</label><br>
+		<textarea name="content" rows="10" cols="50">{{.Content}}</textarea><br><br>		
+		<label>Select Option:</label><br>
+        <input type="radio" id="post" name="status" value="post" required>
+        <label for="post">Post</label><br>
+        <input type="radio" id="draft" name="status" value="draft" required>
+        <label for="draft">Draft</label><br>
+
+		<button type="submit">Save</button>
+	</form>
+	</main>
+</body>
+

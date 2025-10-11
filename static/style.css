@@ -1,0 +1,126 @@
+body {
+	font-family: sans-serif;
+	background: #fff;
+	color: #000;
+	margin: 0;
+	line-height: 1.6;
+}
+
+.top-links {
+	background: #f4f4f4;
+	border-bottom: 1px solid #ccc;
+	padding: 0.4em 1em;
+	font-size: 0.9em;
+}
+
+.top-links a {
+	color: #000;
+	text-decoration: none;
+	padding: 0 0.3em;
+}
+
+.top-links a:hover {
+	text-decoration: underline;
+}
+
+header {
+	position: fixed;
+	top: 2em;
+	left: 0;
+	width: 220px;
+	height: calc(100% - 2em);
+	padding: 1em;
+	box-sizing: border-box;
+}
+
+header h1 {
+	margin: 0 0 0.3em;
+}
+
+header h2 {
+	margin: 0 0 1em;
+	font-size: 1em;
+	color: #444;
+}
+
+header p {
+	margin: 0.5em 0 1em;
+	font-size: 0.9em;
+}
+
+header a {
+	color: inherit;
+	text-decoration: none;
+}
+
+header a:hover {
+	text-decoration: underline;
+}
+
+.sidebar {
+	margin-top: 1em;
+}
+
+.sidebar details {
+	margin-bottom: 1em;
+}
+
+.sidebar ul {
+	list-style: none;
+	padding-left: 1em;
+	margin: 0;
+}
+
+.sidebar a {
+	color: #04c;
+	text-decoration: none;
+}
+
+.sidebar a:hover {
+	text-decoration: underline;
+}
+
+main {
+	margin-left: 240px;
+	max-width: 700px;
+	box-sizing: border-box;
+}
+
+.list-posts {
+	list-style: none;
+	padding: 0;
+}
+
+.list-posts li {
+	margin-bottom: 1em;
+}
+
+footer {
+	margin-left: 240px;
+	color: #666;
+	font-size: 0.9em;
+}
+
+@media (max-width: 800px) {
+	header {
+		position: static;
+		width: 100%;
+		height: auto;
+		padding: 1em;
+		border-bottom: 1px solid #ddd;
+	}
+
+	main,
+	footer {
+		margin-left: 0;
+		max-width: 100%;
+		padding: 1em;
+	}
+
+	.top-links {
+		font-size: 0.8em;
+		padding: 0.5em;
+		word-wrap: break-word;
+	}
+}
+

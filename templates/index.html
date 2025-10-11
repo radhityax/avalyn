@@ -1,0 +1,26 @@
+<title>{{.Title}}</title>
+<body>
+	<main>
+	<ul class="list-posts">
+        {{range .Posts}}
+        <li>
+			<p>{{.Date}} <a href="/blog/{{.Slug}}">{{.Title}}</a></p>
+            <div>{{.HTML | safeHTML}}</div>
+        </li>
+        {{else}}
+        <li>No posts yet</li>
+        {{end}}
+    </ul>
+
+        {{if gt .Page 1}}
+            <a href="/?page={{sub .Page 1}}">Prev</a>
+        {{end}}
+
+        <span>{{.Page}}</span>
+
+        {{if eq (len .Posts) 5}}
+            <a href="/?page={{add .Page 1}}">Next</a>
+        {{end}}
+	</main>
+</body>
+

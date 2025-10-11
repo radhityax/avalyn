@@ -1,0 +1,47 @@
+
+<title>create post</title>
+<body>
+	<main>
+	<h1>Create Post</h1>
+  <form method="POST" action="/new">
+    <label>Title:</label><br>
+    <input type="text" name="title" required><br>
+
+    <label>Content
+      <a href="https://www.markdownguide.org/basic-syntax/"
+         rel="nofollow" target="_blank">Markdown</a>:
+    </label><br>
+    <textarea name="content" rows="10" cols="50" required></textarea><br>
+
+    <div id="passfield" style="display:none;">
+      <input name="pass" type="password" placeholder="pass">
+    </div>
+
+    <label>Select Options:</label><br>
+	<select name="type" id="type">
+		<option value="blog">blog</option>
+		<option value="misc">misc</option>
+	</select>
+
+    <input type="radio" id="post" name="status" value="post" required>
+    <label for="post">Post</label><br>
+    <input type="radio" id="draft" name="status" value="draft" required>
+    <label for="draft">Draft</label><br>
+    <input type="checkbox" id="xopt"> 
+
+	<label for="xopt">password?</label><br>
+    <button type="submit">Send</button>
+  </form>
+  <a href="/dashboard">Back</a>
+
+  <script>
+    const xopt = document.getElementById('xopt');
+    const passfield = document.getElementById('passfield');
+    xopt.addEventListener('change', () => {
+      passfield.style.display = xopt.checked ? 'block' : 'none';
+    });
+  </script>
+	</main>
+</body>
+
+
