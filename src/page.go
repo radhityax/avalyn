@@ -188,7 +188,7 @@ func Page(option int) http.HandlerFunc {
 			return
 		}
 
-		slug := strings.TrimPrefix(r.URL.Path, "/delete-post/")
+		slug := strings.TrimPrefix(r.URL.Path, "/delete/")
 		if slug == "" {
 			http.NotFound(w, r)
 			return

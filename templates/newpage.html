@@ -5,7 +5,7 @@
 	<h1>Create Post</h1>
   <form method="POST" action="/new">
     <label>Title:</label><br>
-    <input type="text" name="title" required><br>
+    <input id="title" type="text" name="title" value="" required autocomplete="off"><br>
 
     <label>Content
       <a href="https://www.markdownguide.org/basic-syntax/"
@@ -14,7 +14,8 @@
     <textarea name="content" rows="10" cols="50" required></textarea><br>
 
     <div id="passfield" style="display:none;">
-      <input name="pass" type="password" placeholder="pass">
+      <input id="pass" value="" name="pass" type="password" placeholder="pass"
+				   autocomplete="new-passowrd">
     </div>
 
     <label>Select Options:</label><br>
