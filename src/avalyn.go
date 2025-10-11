@@ -75,7 +75,11 @@ func main() {
 
 
 	if len(os.Args) == 1 {
-		fmt.Println("wrong. use help flag")
+		fmt.Println("usage: avalyn $flag")
+		fmt.Println("backup, -b ++ backup")
+		fmt.Println("register, -r ++ register an account")
+		fmt.Println("serve, -s ++ serve the program")
+		fmt.Println("version, -v ++ about avalyn")
 		return
 	} else if os.Args[1] == "-s" || os.Args[1] == "serve" {
 		http.HandleFunc("/", indexPage)

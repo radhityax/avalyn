@@ -7,6 +7,7 @@ import (
 	"fmt"
 	_ "modernc.org/sqlite"
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/renderer/html"
 )
 
 func Page(option int) http.HandlerFunc {
@@ -16,8 +17,11 @@ func Page(option int) http.HandlerFunc {
 			slug string
 			column string
 		)
-
-
+		gm := goldmark.New(
+		goldmark.WithRendererOptions(
+			html.WithUnsafe(),
+		),
+	)
 		if option == 1 {
 			slug = strings.TrimPrefix(r.URL.Path, "/blog/")
 			column = "blog"
@@ -60,7 +64,7 @@ func Page(option int) http.HandlerFunc {
 				return
 			}
 			var sb strings.Builder
-			if err := goldmark.Convert([]byte(p.Content), &sb); err == nil {
+			if err := gm.Convert([]byte(p.Content), &sb); err == nil {
 				p.HTML = sb.String()
 			}
 
