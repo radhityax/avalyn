@@ -3,7 +3,6 @@ package main
 import (
 	"strings"
 	"net/http"
-	"time"
 	"fmt"
 	_ "modernc.org/sqlite"
 	"github.com/yuin/goldmark"
@@ -75,14 +74,13 @@ func Page(option int) http.HandlerFunc {
 
 	func newPage(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			title := r.FormValue("title")
+			title := r.FormValue("page_title")
 			content := r.FormValue("content")
 			status := r.FormValue("status")
-			pass := r.FormValue("pass")
+			pass := r.FormValue("page_password")
 			xtype := r.FormValue("type")
-
+			date := r.FormValue("date")
 			slug := slugify(title)
-			date := time.Now().Format(time.RFC3339)
 
 			userID, valid := checkSession(w, r)
 			if !valid {
@@ -119,61 +117,73 @@ func Page(option int) http.HandlerFunc {
 	}
 
 	func editPage(w http.ResponseWriter, r *http.Request) {
-		userID, valid := checkSession(w, r)
-		if !valid {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
-			return
-		}
+	userID, valid := checkSession(w, r)
+	if !valid {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
 
-		var username string
-		err := db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
-		if err != nil {
-			http.Error(w, "failed to get username", http.StatusInternalServerError)
-			return
-		}
+	var username string
+	err := db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
+	if err != nil {
+		http.Error(w, "failed to get username", http.StatusInternalServerError)
+		return
+	}
 
-		var p Post
-		slug := strings.TrimPrefix(r.URL.Path, "/edit/")
-		if slug == "" {
-			http.NotFound(w, r)
-			return
-		}
+	var p Post
+	slug := strings.TrimPrefix(r.URL.Path, "/edit/")
+	if slug == "" {
+		http.NotFound(w, r)
+		return
+	}
 
-		err = db.QueryRow(`SELECT author, status FROM posts WHERE slug=?`, slug).Scan(&p.Author, &p.Status)
-		if err != nil || p.Author != username {
-			http.Error(w, ":(", http.StatusForbidden)
-			return
-		}
+	err = db.QueryRow(`SELECT id, author, status FROM posts WHERE slug=?`, slug).Scan(&p.ID, &p.Author, &p.Status)
+	if err != nil || p.Author != username {
+		http.Error(w, ":(", http.StatusForbidden)
+		return
+	}
 
-		if r.Method == http.MethodPost {
-			title := r.FormValue("title")
-			content := r.FormValue("content")
-			status := r.FormValue("status")
-			// xtype := r.FormValue("type")
+	if r.Method == http.MethodPost {
+		title := r.FormValue("page_title")
+		content := r.FormValue("content")
+		status := r.FormValue("status")
+		date := r.FormValue("date")
+		newSlug := slugify(title)
 
-			newSlug := slugify(title)
-
-			_, err := db.Exec(`UPDATE posts SET title=?, slug=?, content=?, status=? WHERE slug=?`,
-			title, newSlug, content, status, slug)
+		if newSlug == slug {
+			_, err := db.Exec(`UPDATE posts SET date=?, title=?, content=?, status=? WHERE id=?`,
+				date, title, content, status, p.ID)
 			if err != nil {
+				http.Error(w, "db update error", 500)
+				fmt.Println(err)
+				return
+			}
+		} else {
+			_, err := db.Exec(`UPDATE posts SET date=?, title=?, slug=?, content=?, status=? WHERE id=?`,
+				date, title, newSlug, content, status, p.ID)
+			if err != nil {
+
+				fmt.Println(err)
 				http.Error(w, "db update error", 500)
 				return
 			}
-
-			http.Redirect(w, r, "/post/"+newSlug, http.StatusSeeOther)
-			return
 		}
 
-		err = db.QueryRow(`SELECT id, date, author, title, slug, content FROM posts WHERE slug=?`, slug).
-		Scan(&p.ID, &p.Date, &p.Author, &p.Title, &p.Slug, &p.Content)
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-
-		renderTemplate(w, r, "editpage.html", p)
+		http.Redirect(w, r, "/post/"+newSlug, http.StatusSeeOther)
+		return
 	}
 
+	err = db.QueryRow(`SELECT id, date, author, title, slug, content FROM posts WHERE slug=?`, slug).
+		Scan(&p.ID, &p.Date, &p.Author, &p.Title, &p.Slug, &p.Content)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	renderTemplate(w, r, "editpage.html", p)
+}
+
+	
 	func deletePage(w http.ResponseWriter, r *http.Request) {
 		userID, valid := checkSession(w, r)
 		if !valid {
@@ -227,15 +237,15 @@ func Page(option int) http.HandlerFunc {
 			}
 			slug = strings.TrimSuffix(slug, "/unlock")
 
-			pw := r.FormValue("password")
+			pw := r.FormValue("page_password")
 			var hash string
 			err := db.QueryRow(`SELECT pass FROM posts WHERE slug = ?`, slug).Scan(&hash)
 			if err != nil || hash == "" {
 				if optionx == 1 {
-				http.Redirect(w, r, "/blog/"+slug, http.StatusSeeOther)
-			} else if optionx == 2 {	
-				http.Redirect(w, r, "/misc/"+slug, http.StatusSeeOther)
-			}
+					http.Redirect(w, r, "/blog/"+slug, http.StatusSeeOther)
+				} else if optionx == 2 {	
+					http.Redirect(w, r, "/misc/"+slug, http.StatusSeeOther)
+				}
 				return
 			}
 

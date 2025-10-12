@@ -188,7 +188,6 @@ func indexPage(w http.ResponseWriter, r *http.Request) {
 		var p Post
 		rows.Scan(&p.ID, &p.Date, &p.Author, &p.Type, &p.Title, &p.Slug, &p.Content, 
 		&p.Status)
-		p.Date = p.Date[:10]
 		posts = append(posts, p)
 	}
 

@@ -4,8 +4,9 @@
 	<h1>Edit Post</h1>
 	<form method="POST">
 		<label>Title:</label><br>
-		<input type="text" name="title" value="{{.Title}}"><br><br>
-
+		<input type="text" name="page_title" value="{{.Title}}"><br><br>
+		<input id="date" name="date" value="{{.Date}}" type="date">
+		<br>
 		<label>Content 
 			<a href="https://www.markdownguide.org/basic-syntax/"
 			   rel="nofollow" target="_blank">Markdown</a>:</label><br>

@@ -6,7 +6,7 @@ base_flags = -modcacherw -tags "osusergo,netgo" -trimpath -buildvcs=false \
 	     -ldflags="-s -w -buildid= -extldflags '-static -s -w'"
 
 all:
-	GOOS=linux GOARCH=amd64 go build $(base_flags) \
+	GOARCH=amd64 go build $(base_flags) \
 	-o $(target) $(src)
 
 phone:

@@ -2,36 +2,34 @@
 <title>create post</title>
 <body>
 	<main>
-	<h1>Create Post</h1>
-  <form method="POST" action="/new">
+	<h1>create</h1>
+  <form method="POST" action="/new" autocomplete="off">
     <label>Title:</label><br>
-    <input id="title" type="text" name="title" value="" required autocomplete="off"><br>
-
+    <input id="page_title" type="text" name="page_title" value="" required
+	autocomplete="nope"><br>
+	<input id="date" name="date" type="date">
+	<br>
     <label>Content
       <a href="https://www.markdownguide.org/basic-syntax/"
          rel="nofollow" target="_blank">Markdown</a>:
     </label><br>
     <textarea name="content" rows="10" cols="50" required></textarea><br>
 
-    <div id="passfield" style="display:none;">
-      <input id="pass" value="" name="pass" type="password" placeholder="pass"
-				   autocomplete="new-passowrd">
-    </div>
-
-    <label>Select Options:</label><br>
+	<label>Select Options:</label><br>
 	<select name="type" id="type">
 		<option value="blog">blog</option>
 		<option value="misc">misc</option>
-	</select>
-
+	</select><br>
     <input type="radio" id="post" name="status" value="post" required>
-    <label for="post">Post</label><br>
+	<label for="post">Post</label><br>
     <input type="radio" id="draft" name="status" value="draft" required>
     <label for="draft">Draft</label><br>
     <input type="checkbox" id="xopt"> 
 
-	<label for="xopt">password?</label><br>
-    <button type="submit">Send</button>
+      <input id="page_password" value="" name="page_password" type="password" placeholder="pass"
+	  autocomplete="new-password">
+
+	<button type="submit">Send</button>
   </form>
   <a href="/dashboard">Back</a>
 
