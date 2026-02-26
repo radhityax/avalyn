@@ -113,8 +113,8 @@ func main() {
 
 		http.HandleFunc("/misc/", pageRouter(2))
 
-		http.Handle("/static/", http.StripPrefix("/static/", 
-		http.FileServer(http.Dir("static"))))
+		staticDir := fmt.Sprintf("themes/%s/static", theme)
+		http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 
 		fmt.Println("avalyn started at http://localhost:1112")
 		err := http.ListenAndServe(":1112", nil)
@@ -156,7 +156,7 @@ func createSession(w http.ResponseWriter, userID int) {
 		Value:    sessionID,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   true,
 		Expires:  expiry,
 	})
 }

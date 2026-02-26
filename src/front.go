@@ -2,25 +2,23 @@ package main
 
 import (
 	"fmt"
+	"golang.org/x/crypto/bcrypt"
 	"html/template"
+	_ "modernc.org/sqlite"
 	"net/http"
 	"strings"
 	"time"
-	_ "modernc.org/sqlite"
-	"golang.org/x/crypto/bcrypt"
-
-
 )
 
-var tmplFuncs = template.FuncMap {
+var tmplFuncs = template.FuncMap{
 	"safeHTML": func(s string) template.HTML {
 		return template.HTML(s)
 	},
 	"add": func(a, b int) int {
-		return a+b
+		return a + b
 	},
 	"sub": func(a, b int) int {
-		return a-b
+		return a - b
 	},
 }
 
@@ -31,14 +29,14 @@ func loginPage(w http.ResponseWriter, r *http.Request) {
 		var hash string
 		var userID int
 		err := db.QueryRow(`SELECT id, password_hash 
-		FROM users WHERE username=?`, 
-		username).Scan(&userID, &hash)
+		FROM users WHERE username=?`,
+			username).Scan(&userID, &hash)
 		if err != nil {
 			http.Error(w, "username not found", 401)
 			return
 		}
-		if bcrypt.CompareHashAndPassword([]byte(hash), 
-		[]byte(password)) != nil {
+		if bcrypt.CompareHashAndPassword([]byte(hash),
+			[]byte(password)) != nil {
 			http.Error(w, "wrong password", 401)
 			return
 		}
@@ -49,20 +47,19 @@ func loginPage(w http.ResponseWriter, r *http.Request) {
 	renderTemplate(w, r, "login.html", nil)
 }
 
-
 func signupPage(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		username := r.FormValue("username")
 		password := r.FormValue("password")
-		hash, err := bcrypt.GenerateFromPassword([]byte(password), 
-		bcrypt.DefaultCost)
+		hash, err := bcrypt.GenerateFromPassword([]byte(password),
+			bcrypt.DefaultCost)
 		if err != nil {
 			http.Error(w, "hash error", 500)
 			return
 		}
 		_, err = db.Exec(`INSERT INTO users(username, password_hash)
-		VALUES(?, ?)`, 
-		username, hash)
+		VALUES(?, ?)`,
+			username, hash)
 		if err != nil {
 			http.Error(w, "username already used", 400)
 			return
@@ -92,72 +89,71 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func dashboardPage(w http.ResponseWriter, r *http.Request) {
-    author := getUsername(w, r)
+	author := getUsername(w, r)
 
-    pageStr := r.URL.Query().Get("page")
-    page := 1
-    if pageStr != "" {
-        fmt.Sscanf(pageStr, "%d", &page)
-    }
-    if page < 1 {
-        page = 1
-    }
-    limit := 5
-    offset := (page - 1) * limit
+	pageStr := r.URL.Query().Get("page")
+	page := 1
+	if pageStr != "" {
+		fmt.Sscanf(pageStr, "%d", &page)
+	}
+	if page < 1 {
+		page = 1
+	}
+	limit := 5
+	offset := (page - 1) * limit
 
-    rows, err := db.Query(`SELECT id, date, author, type, title, slug, content, status
+	rows, err := db.Query(`SELECT id, date, author, type, title, slug, content, status
         FROM posts WHERE author=? AND type='blog' ORDER BY id DESC LIMIT ? OFFSET ?`,
-        author, limit, offset)
-    if err != nil {
-        http.Error(w, "db error rows", 500)
-        return
-    }
-    defer rows.Close()
+		author, limit, offset)
+	if err != nil {
+		http.Error(w, "db error rows", 500)
+		return
+	}
+	defer rows.Close()
 
-    var posts []Post
-    for rows.Next() {
-        var p Post
-        rows.Scan(&p.ID, &p.Date, &p.Author, &p.Type, &p.Title, &p.Slug, 
-	&p.Content, &p.Status)
-        if p.Status == "draft" {
-            p.Title += " (draft)"
-        }
-        posts = append(posts, p)
-    }
+	var posts []Post
+	for rows.Next() {
+		var p Post
+		rows.Scan(&p.ID, &p.Date, &p.Author, &p.Type, &p.Title, &p.Slug,
+			&p.Content, &p.Status)
+		if p.Status == "draft" {
+			p.Title += " (draft)"
+		}
+		posts = append(posts, p)
+	}
 
-    miscrows, err := db.Query(`SELECT id, date, author, type, title, slug, 
+	miscrows, err := db.Query(`SELECT id, date, author, type, title, slug, 
     content, status FROM posts WHERE author=? AND type='misc' ORDER BY id DESC 
     LIMIT ? OFFSET ?`, author, limit, offset)
-    if err != nil {
-        http.Error(w, "db error", 500)
-        return
-    }
-    defer miscrows.Close()
+	if err != nil {
+		http.Error(w, "db error", 500)
+		return
+	}
+	defer miscrows.Close()
 
-    var miscs []Post
-    for miscrows.Next() {
-        var m Post
-        miscrows.Scan(&m.ID, &m.Date, &m.Author, &m.Type, &m.Title, &m.Slug, 
-	&m.Content, &m.Status)
-        if m.Status == "draft" {
-            m.Title += " (draft)"
-        }
-        miscs = append(miscs, m)
-    }
+	var miscs []Post
+	for miscrows.Next() {
+		var m Post
+		miscrows.Scan(&m.ID, &m.Date, &m.Author, &m.Type, &m.Title, &m.Slug,
+			&m.Content, &m.Status)
+		if m.Status == "draft" {
+			m.Title += " (draft)"
+		}
+		miscs = append(miscs, m)
+	}
 
-    data := struct {
-        Posts    []Post
-        Miscs    []Post
-        Page     int
-    }{
-        Posts: posts,
-        Miscs: miscs,
-        Page:  page,
-    }
+	data := struct {
+		Posts []Post
+		Miscs []Post
+		Page  int
+	}{
+		Posts: posts,
+		Miscs: miscs,
+		Page:  page,
+	}
 
-    renderTemplate(w, r, "dashboard.html", data)
+	renderTemplate(w, r, "dashboard.html", data)
 }
-
 
 func indexPage(w http.ResponseWriter, r *http.Request) {
 
@@ -175,8 +171,8 @@ func indexPage(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Query(`SELECT id, date, author, type, title, slug, content,
 	status FROM posts WHERE type='blog' AND status='post'
-	ORDER BY id DESC LIMIT ? OFFSET ?`, 
-	limit, offset)
+	ORDER BY date DESC, id DESC LIMIT ? OFFSET ?`,
+		limit, offset)
 
 	if err != nil {
 		http.Error(w, "db error", 500)
@@ -186,46 +182,44 @@ func indexPage(w http.ResponseWriter, r *http.Request) {
 	var posts []Post
 	for rows.Next() {
 		var p Post
-		rows.Scan(&p.ID, &p.Date, &p.Author, &p.Type, &p.Title, &p.Slug, &p.Content, 
-		&p.Status)
+		rows.Scan(&p.ID, &p.Date, &p.Author, &p.Type, &p.Title, &p.Slug, &p.Content,
+			&p.Status)
 		posts = append(posts, p)
 	}
 
 	data := struct {
 		Posts []Post
-		Page int
+		Page  int
 		Title string
 	}{
 		Posts: posts,
-		Page: page,
+		Page:  page,
 		Title: title,
 	}
 	renderTemplate(w, r, "index.html", data)
 }
 
-
 func renderTemplate(w http.ResponseWriter, r *http.Request, filename string, data interface{}) {
+	themePath := "themes/" + theme + "/templates/"
 
-
-	tmpl, err := template.New(filename).Funcs(tmplFuncs).ParseFiles(`templates/` + filename)
+	tmpl, err := template.New(filename).Funcs(tmplFuncs).ParseFiles(themePath + filename)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	head, err := template.New("head.html").Funcs(tmplFuncs).ParseFiles(`templates/head.html`)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	header, err := template.ParseFiles(`templates/header.html`)
+	head, err := template.New("head.html").Funcs(tmplFuncs).ParseFiles(themePath + "head.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	header, err := template.ParseFiles(themePath + "header.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	footer, err := template.ParseFiles(`templates/footer.html`)
+	footer, err := template.ParseFiles(themePath + "footer.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -1,0 +1,57 @@
+<title>Create Post</title>
+<body>
+	<main>
+		<h1>Create New Post</h1>
+		<form method="POST" action="/new" class="post-form" autocomplete="off">
+			<div class="form-group">
+				<label for="page_title">Title</label>
+				<input id="page_title" type="text" name="page_title" required>
+			</div>
+			<div class="form-group">
+				<label for="date">Date</label>
+				<input id="date" name="date" type="date">
+			</div>
+			<div class="form-group">
+				<label for="content">Content (<a href="https://www.markdownguide.org/basic-syntax/" rel="nofollow" target="_blank">Markdown</a>)</label>
+				<textarea id="content" name="content" rows="15" required></textarea>
+			</div>
+			<div class="form-group">
+				<label for="type">Type</label>
+				<select name="type" id="type">
+					<option value="blog">Blog</option>
+					<option value="misc">Misc</option>
+				</select>
+			</div>
+			<div class="form-group">
+				<label>Status</label>
+				<div class="radio-group">
+					<input type="radio" id="post" name="status" value="post" required>
+					<label for="post">Post</label>
+					<input type="radio" id="draft" name="status" value="draft" required>
+					<label for="draft">Draft</label>
+				</div>
+			</div>
+			<div class="form-group">
+				<input type="checkbox" id="password_toggle">
+				<label for="password_toggle">Enable Password</label>
+			</div>
+			<div class="form-group" id="password_field" style="display: none;">
+				<label for="page_password">Password</label>
+				<input id="page_password" name="page_password" type="password" autocomplete="new-password">
+			</div>
+			<div class="form-actions">
+				<button type="submit" class="btn">Save</button>
+				<a href="/dashboard" class="btn-link">Cancel</a>
+			</div>
+		</form>
+	</main>
+	<script>
+		const toggle = document.getElementById('password_toggle');
+		const passField = document.getElementById('password_field');
+		if (toggle && passField) {
+			toggle.addEventListener('change', () => {
+				passField.style.display = toggle.checked ? 'block' : 'none';
+			});
+		}
+	</script>
+</body>
