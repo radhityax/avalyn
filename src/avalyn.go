@@ -111,6 +111,7 @@ func main() {
 		http.HandleFunc("/edit/", authMiddleware(editPage))
 		http.HandleFunc("/delete/", authMiddleware(deletePage))
 
+
 		http.HandleFunc("/misc/", pageRouter(2))
 
 		staticDir := fmt.Sprintf("themes/%s/static", theme)
@@ -132,6 +133,21 @@ func main() {
 	} else if os.Args[1] == "-r" || os.Args[1] == "register" {
 		registerAccount()
 		return
+	} else if os.Args[1] == "migrate" {
+		if len(os.Args) < 3 {
+			fmt.Println("usage: avalyn migrate hugo <path>")
+			return
+		}
+		if os.Args[2] == "hugo" {
+			if len(os.Args) < 4 {
+				fmt.Println("usage: avalyn migrate hugo <path>")
+				return
+			}
+			migrateHugo(os.Args[3])
+		} else {
+			fmt.Println("usage: avalyn migrate hugo <path>")
+		}
+		return
 	} else {
 		fmt.Println("usage: avalyn $flag")
 		fmt.Println("backup, -b ++ backup")
@@ -152,12 +168,12 @@ func createSession(w http.ResponseWriter, userID int) {
 		log.Println("create session error:", err)
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
-		Value:    sessionID,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		Expires:  expiry,
+		Name:		"session",
+		Value:		sessionID,
+		Path:		"/",
+		HttpOnly:	true,
+		Secure:		true,
+		Expires:	expiry,
 	})
 }
 
@@ -284,4 +300,3 @@ func pageRouter(option int) http.HandlerFunc {
 		}
 	}
 }
-

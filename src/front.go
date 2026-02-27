@@ -6,7 +6,6 @@ import (
 	"html/template"
 	_ "modernc.org/sqlite"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -256,17 +255,8 @@ func renderTemplate(w http.ResponseWriter, r *http.Request, filename string, dat
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := footer.Execute(w, data); err != nil {
+	if err := footer.Execute(w, d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-}
-
-func slugify(title string) string {
-	s := strings.ToLower(title)
-	s = strings.ReplaceAll(s, " ", "-")
-	s = strings.ReplaceAll(s, "!", "")
-	s = strings.ReplaceAll(s, "?", "")
-	s = strings.ReplaceAll(s, ".", "")
-	return s
 }
