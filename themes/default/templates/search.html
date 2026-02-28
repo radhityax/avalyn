@@ -1,0 +1,16 @@
+<title>{{.Title}}</title>
+<body>
+	<main>
+	<h1>Search Results for "{{.Query}}"</h1>
+	<ul class="list-posts">
+        {{range .Posts}}
+        <li>
+			<p>{{.Date}} <a href="/blog/{{.Slug}}">{{.Title}}</a></p>
+            <div>{{.HTML | safeHTML}}</div>
+        </li>
+        {{else}}
+        <li>No results found for "{{.Query}}".</li>
+        {{end}}
+    </ul>
+	</main>
+</body>

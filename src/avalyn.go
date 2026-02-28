@@ -106,6 +106,7 @@ func main() {
 		http.HandleFunc("/logout", logoutHandler)
 		http.HandleFunc("/dashboard", authMiddleware(dashboardPage))
 
+		http.HandleFunc("/search", searchPosts)
 		http.HandleFunc("/blog/", pageRouter(1))
 		http.HandleFunc("/new", authMiddleware(newPage))
 		http.HandleFunc("/edit/", authMiddleware(editPage))

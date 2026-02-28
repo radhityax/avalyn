@@ -1,4 +1,5 @@
-src = src/avalyn.go src/cli.go src/front.go src/page.go src/config.go
+src = src/avalyn.go src/cli.go src/front.go src/page.go src/config.go src/utils.go \
+	  src/search.go
 target = avalyn
 db = avalyn.db
 
