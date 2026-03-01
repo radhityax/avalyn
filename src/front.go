@@ -98,7 +98,7 @@ func dashboardPage(w http.ResponseWriter, r *http.Request) {
 	if page < 1 {
 		page = 1
 	}
-	limit := 5
+    limit := 6
 	offset := (page - 1) * limit
 
 	rows, err := db.Query(`SELECT id, date, author, type, title, slug, content, status
@@ -165,7 +165,7 @@ func indexPage(w http.ResponseWriter, r *http.Request) {
 		page = 1
 	}
 
-	limit := 5
+	limit := 6
 	offset := (page - 1) * limit
 
 	rows, err := db.Query(`SELECT id, date, author, type, title, slug, content,

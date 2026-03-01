@@ -14,6 +14,11 @@
 			<a href="https://www.markdownguide.org/basic-syntax/"
 			   rel="nofollow" target="_blank">Markdown</a>:</label><br>
 		<textarea name="content" rows="10" cols="50">{{.Content}}</textarea><br><br>
+		<label>Type:</label><br>
+		<select name="type" id="type">
+			<option value="blog" {{if eq .Type "blog"}}selected{{end}}>blog</option>
+			<option value="misc" {{if eq .Type "misc"}}selected{{end}}>misc</option>
+		</select><br><br>
 		<label>Select Option:</label><br>
         <input type="radio" id="post" name="status" value="post" {{if eq .Status "post"}}checked{{end}} required>
         <label for="post">Post</label><br>

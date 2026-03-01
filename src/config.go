@@ -5,7 +5,7 @@ package main
 var version string = "beta"
 
 // register in the browser: 0 for no, 1 for yes
-var register_browser_mode int = 0
+var register_browser_mode int = 1
 
 // i bet you already know what they means
 var title string = "avalyn"

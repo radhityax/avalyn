@@ -1,10 +1,11 @@
 <title>{{.Title}}</title>
 <body>
 	<main>
+	<h1>Miscellaneous</h1>
 	<ul class="list-posts">
         {{range .Posts}}
         <li>
-			<p>{{.Date}} <a href="/blog/{{.Slug}}">{{.Title}}</a></p>
+			<p>{{.Date}} <a href="/misc/{{.Slug}}">{{.Title}}</a></p>
             <div>{{.HTML | safeHTML}}</div>
         </li>
         {{else}}
@@ -13,14 +14,13 @@
     </ul>
 
         {{if gt .Page 1}}
-            <a href="/?page={{sub .Page 1}}">Prev</a>
+            <a href="/misc/?page={{sub .Page 1}}">Prev</a>
         {{end}}
 
         <span>{{.Page}}</span>
 
         {{if eq (len .Posts) 6}}
-            <a href="/?page={{add .Page 1}}">Next</a>
+            <a href="/misc/?page={{add .Page 1}}">Next</a>
         {{end}}
 	</main>
 </body>
-

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/yuin/goldmark"
-	_ "github.com/yuin/goldmark/renderer/html"
+	 "github.com/yuin/goldmark/renderer/html"
 	_ "modernc.org/sqlite"
 	"net/http"
 	"strings"
@@ -16,7 +16,11 @@ func Page(option int) http.HandlerFunc {
 			slug   string
 			column string
 		)
-		gm := goldmark.New()
+		gm := goldmark.New(
+            goldmark.WithRendererOptions(
+                html.WithUnsafe(),
+            ),
+            )
 		if option == 1 {
 			slug = strings.TrimPrefix(r.URL.Path, "/blog/")
 			column = "blog"
@@ -29,6 +33,10 @@ func Page(option int) http.HandlerFunc {
 		}
 
 		if slug == "" {
+			if option == 2 {
+				miscIndex(w, r)
+				return
+			}
 			http.NotFound(w, r)
 			return
 		}
@@ -132,7 +140,7 @@ func editPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = db.QueryRow(`SELECT id, author, status, pass FROM posts WHERE slug=?`, slug).Scan(&p.ID, &p.Author, &p.Status, &p.Pass)
+	err = db.QueryRow(`SELECT id, author, type, status, pass FROM posts WHERE slug=?`, slug).Scan(&p.ID, &p.Author, &p.Type, &p.Status, &p.Pass)
 	if err != nil || p.Author != username {
 		http.Error(w, ":(", http.StatusForbidden)
 		return
@@ -143,6 +151,7 @@ func editPage(w http.ResponseWriter, r *http.Request) {
 		content := r.FormValue("content")
 		status := r.FormValue("status")
 		date := r.FormValue("date")
+		xtype := r.FormValue("type")
 		currentPassword := r.FormValue("current_password")
 		newPassword := r.FormValue("page_password")
 		passwordToggle := r.FormValue("password_toggle")
@@ -164,6 +173,7 @@ func editPage(w http.ResponseWriter, r *http.Request) {
 					"Slug":    p.Slug,
 					"Content": p.Content,
 					"Status":  p.Status,
+					"Type":    p.Type,
 					"HasPass": p.Pass != "",
 					"Error":   "Current password is incorrect",
 				})
@@ -185,38 +195,35 @@ func editPage(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if newSlug == slug {
-			_, err := db.Exec(`UPDATE posts SET date=?, title=?, content=?, status=?, pass=? WHERE id=?`,
-				date, title, content, status, passhash, p.ID)
+			_, err := db.Exec(`UPDATE posts SET date=?, title=?, content=?, status=?, type=?, pass=? WHERE id=?`,
+				date, title, content, status, xtype, passhash, p.ID)
 			if err != nil {
 				http.Error(w, "db update error", 500)
 				fmt.Println(err)
 				return
 			}
 		} else {
-			_, err := db.Exec(`UPDATE posts SET date=?, title=?, slug=?, content=?, status=?, pass=? WHERE id=?`,
-				date, title, newSlug, content, status, passhash, p.ID)
+			_, err := db.Exec(`UPDATE posts SET date=?, title=?, slug=?, content=?, status=?, type=?, pass=? WHERE id=?`,
+				date, title, newSlug, content, status, xtype, passhash, p.ID)
 			if err != nil {
 
 				fmt.Println(err)
 				http.Error(w, "db update error", 500)
 				return
 			}
+		}
+
+		prefix := "/blog/"
+		if xtype == "misc" {
+			prefix = "/misc/"
 		}
 
 		if newSlug != slug {
-			if status == "post" {
-				http.Redirect(w, r, "/blog/"+newSlug, http.StatusSeeOther)
-			} else {
-				http.Redirect(w, r, "/post/"+newSlug, http.StatusSeeOther)
-			}
+			http.Redirect(w, r, prefix+newSlug, http.StatusSeeOther)
 			return
 		}
 
-		if status == "post" {
-			http.Redirect(w, r, "/blog/"+slug, http.StatusSeeOther)
-		} else {
-			http.Redirect(w, r, "/post/"+slug, http.StatusSeeOther)
-		}
+		http.Redirect(w, r, prefix+slug, http.StatusSeeOther)
 		return
 	}
 
@@ -235,6 +242,7 @@ func editPage(w http.ResponseWriter, r *http.Request) {
 		"Slug":    p.Slug,
 		"Content": p.Content,
 		"Status":  p.Status,
+		"Type":    p.Type,
 		"HasPass": p.Pass != "",
 	})
 }
@@ -317,4 +325,48 @@ func pageUnlock(option int) http.HandlerFunc {
 			http.Redirect(w, r, "/misc/"+slug, http.StatusSeeOther)
 		}
 	}
+}
+
+func miscIndex(w http.ResponseWriter, r *http.Request) {
+
+	pageStr := r.URL.Query().Get("page")
+	page := 1
+	if pageStr != "" {
+		fmt.Sscanf(pageStr, "%d", &page)
+	}
+	if page < 1 {
+		page = 1
+	}
+
+	limit := 6
+	offset := (page - 1) * limit
+
+	rows, err := db.Query(`SELECT id, date, author, type, title, slug, content,
+	status FROM posts WHERE type='misc' AND status='post'
+	ORDER BY date DESC, id DESC LIMIT ? OFFSET ?`,
+		limit, offset)
+
+	if err != nil {
+		http.Error(w, "db error", 500)
+		return
+	}
+	defer rows.Close()
+	var posts []Post
+	for rows.Next() {
+		var p Post
+		rows.Scan(&p.ID, &p.Date, &p.Author, &p.Type, &p.Title, &p.Slug, &p.Content,
+			&p.Status)
+		posts = append(posts, p)
+	}
+
+	data := struct {
+		Posts []Post
+		Page  int
+		Title string
+	}{
+		Posts: posts,
+		Page:  page,
+		Title: title,
+	}
+	renderTemplate(w, r, "misc.html", data)
 }
