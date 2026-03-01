@@ -20,6 +20,10 @@ init:
 	go get golang.org/x/crypto/bcrypt
 	go get github.com/yuin/goldmark
 
+tidy:
+	go mod tidy
+
 clean:
+	go clean -cache -testcache
 	rm -f $(db) $(target)
 
