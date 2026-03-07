@@ -75,14 +75,11 @@ func main() {
 
 
 	if len(os.Args) == 1 {
-		fmt.Println("usage: avalyn $flag")
-		fmt.Println("backup, -b ++ backup")
-		fmt.Println("register, -r ++ register an account")
-		fmt.Println("serve, -s ++ serve the program")
-		fmt.Println("version, -v ++ about avalyn")
+
 		return
-	} else if os.Args[1] == "-s" || os.Args[1] == "serve" {
+	} else if os.Args[1] == "-s" {
 		http.HandleFunc("/", indexPage)
+
 		http.HandleFunc("/login", 
 		func (w http.ResponseWriter, r *http.Request) {
 			if _, err := r.Cookie("session"); err == nil {
@@ -91,6 +88,7 @@ func main() {
 				loginPage(w, r)
 			}
 		})
+		
 		http.HandleFunc("/register", 
 		func (w http.ResponseWriter, r *http.Request) {
 			if _, err := r.Cookie("session"); err == nil {
@@ -103,6 +101,7 @@ func main() {
 				}
 			}
 		})
+		
 		http.HandleFunc("/logout", logoutHandler)
 		http.HandleFunc("/dashboard", authMiddleware(dashboardPage))
 
@@ -116,7 +115,8 @@ func main() {
 		http.HandleFunc("/misc/", pageRouter(2))
 
 		staticDir := fmt.Sprintf("themes/%s/static", theme)
-		http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
+		http.Handle("/static/", http.StripPrefix("/static/",
+		http.FileServer(http.Dir(staticDir))))
 
 		fmt.Println("avalyn started at http://localhost:1112")
 		err := http.ListenAndServe(":1112", nil)
@@ -125,36 +125,25 @@ func main() {
 			return
 		}
 		return
-	} else if os.Args[1] == "-b" || os.Args[1] == "backup" {
+	} else if os.Args[1] == "-b" {
 		backup()
-	} else if os.Args[1] == "-v" || os.Args[1] == "version" {
+		return
+	} else if os.Args[1] == "-v" {
 		fmt.Printf("avalyn - %s\n", version)
 		fmt.Println("github.com/radhityax/avalyn")
 		return
-	} else if os.Args[1] == "-r" || os.Args[1] == "register" {
+	} else if os.Args[1] == "-r" {
 		registerAccount()
 		return
-	} else if os.Args[1] == "migrate" {
-		if len(os.Args) < 3 {
-			fmt.Println("usage: avalyn migrate hugo <path>")
+	} else if os.Args[1] == "-m" {
+    if len(os.Args) < 3 {
+    fmt.Println("not enough")
+    return
+}
+			migrateHugo(os.Args[2])
 			return
-		}
-		if os.Args[2] == "hugo" {
-			if len(os.Args) < 4 {
-				fmt.Println("usage: avalyn migrate hugo <path>")
-				return
-			}
-			migrateHugo(os.Args[3])
-		} else {
-			fmt.Println("usage: avalyn migrate hugo <path>")
-		}
-		return
 	} else {
-		fmt.Println("usage: avalyn $flag")
-		fmt.Println("backup, -b ++ backup")
-		fmt.Println("register, -r ++ register an account")
-		fmt.Println("serve, -s ++ serve the program")
-		fmt.Println("version, -v ++ about avalyn")
+    printHelp()
 		return
 	}
 }
