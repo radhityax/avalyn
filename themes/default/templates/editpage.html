@@ -2,54 +2,23 @@
 <body>
 	<main>
 	<h1>Edit Post</h1>
-	{{if .Error}}
-	<p style="color: red;">{{.Error}}</p>
-	{{end}}
 	<form method="POST">
 		<label>Title:</label><br>
 		<input type="text" name="page_title" value="{{.Title}}"><br><br>
 		<input id="date" name="date" value="{{.Date}}" type="date">
 		<br>
-		<label>Content
+		<label>Content 
 			<a href="https://www.markdownguide.org/basic-syntax/"
 			   rel="nofollow" target="_blank">Markdown</a>:</label><br>
-		<textarea name="content" rows="10" cols="50">{{.Content}}</textarea><br><br>
-		<label>Type:</label><br>
-		<select name="type" id="type">
-			<option value="blog" {{if eq .Type "blog"}}selected{{end}}>blog</option>
-			<option value="misc" {{if eq .Type "misc"}}selected{{end}}>misc</option>
-		</select><br><br>
+		<textarea name="content" rows="10" cols="50">{{.Content}}</textarea><br><br>		
 		<label>Select Option:</label><br>
-        <input type="radio" id="post" name="status" value="post" {{if eq .Status "post"}}checked{{end}} required>
+        <input type="radio" id="post" name="status" value="post" required>
         <label for="post">Post</label><br>
-        <input type="radio" id="draft" name="status" value="draft" {{if eq .Status "draft"}}checked{{end}} required>
+        <input type="radio" id="draft" name="status" value="draft" required>
         <label for="draft">Draft</label><br>
-		{{if .HasPass}}
-		<hr>
-		<h3>Change Password</h3>
-		<p>Leave blank to keep current password</p>
-		<label for="current_password">Current Password:</label><br>
-		<input type="password" name="current_password" id="current_password"><br><br>
-		{{end}}
-		<label for="password_toggle">Enable/Change Password</label>
-		<input type="checkbox" id="password_toggle" {{if .HasPass}}checked{{end}}>
-		<div class="form-group" id="password_field" {{if not .HasPass}}style="display: none;"{{end}}>
-			<label for="page_password">New Password:</label><br>
-			<input type="password" name="page_password" id="page_password" autocomplete="new-password">
-		</div>
-		<br>
+
 		<button type="submit">Save</button>
 	</form>
 	</main>
-	<script>
-		const toggle = document.getElementById('password_toggle');
-		const passField = document.getElementById('password_field');
-		const currentPass = document.getElementById('current_password');
-		if (toggle && passField) {
-			toggle.addEventListener('change', () => {
-				passField.style.display = toggle.checked ? 'block' : 'none';
-			});
-		}
-	</script>
 </body>
 
