@@ -5,10 +5,10 @@ package main
 var version string = "beta"
 
 // register in the browser: 0 for no, 1 for yes
-var register_browser_mode int = 1
+var register_browser_mode int = 0
 
 // i bet you already know what they means
-var title string = "avalyn"
-var subtitle string = "an absurd web"
+var site_title string = "avalyn"
+var site_subtitle string = "an absurd web"
 
 var theme string = "default"

@@ -7,6 +7,7 @@ import (
 	_ "modernc.org/sqlite"
 	"net/http"
 	"time"
+    "os"
 )
 
 var tmplFuncs = template.FuncMap{
@@ -145,10 +146,12 @@ func dashboardPage(w http.ResponseWriter, r *http.Request) {
 		Posts []Post
 		Miscs []Post
 		Page  int
+        Site_Title string
 	}{
 		Posts: posts,
 		Miscs: miscs,
 		Page:  page,
+        Site_Title: site_title,
 	}
 
 	renderTemplate(w, r, "dashboard.html", data)
@@ -189,16 +192,27 @@ func indexPage(w http.ResponseWriter, r *http.Request) {
 	data := struct {
 		Posts []Post
 		Page  int
-		Title string
+        Title string
+        Site_Title string
+        Site_Subtitle string
 	}{
 		Posts: posts,
 		Page:  page,
-		Title: title,
+        Site_Title: site_title,
+        Site_Subtitle: site_subtitle,
 	}
 	renderTemplate(w, r, "index.html", data)
 }
 
 func renderTemplate(w http.ResponseWriter, r *http.Request, filename string, data interface{}) {
+
+    directoryPath := "./themes"
+    
+    if stat, err := os.Stat(directoryPath); err == nil && stat.IsDir() {
+    } else if os.IsNotExist(err) {
+    fmt.Printf("'%s' not exist. let me create first", directoryPath)
+    os.MkdirAll(directoryPath, 0755)
+    }
 	themePath := "themes/" + theme + "/templates/"
 
 	tmpl, err := template.New(filename).Funcs(tmplFuncs).ParseFiles(themePath + filename)
@@ -243,8 +257,8 @@ func renderTemplate(w http.ResponseWriter, r *http.Request, filename string, dat
 
 	d["Logged"] = valid
 	d["Username"] = username
-	d["Subtitle"] = subtitle
-	d["Title"] = title
+    d["Site_Title"] = site_title
+    d["Site_Subtitle"] = site_subtitle
 
 	if err := header.Execute(w, d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -366,7 +366,6 @@ func miscIndex(w http.ResponseWriter, r *http.Request) {
 	}{
 		Posts: posts,
 		Page:  page,
-		Title: title,
 	}
 	renderTemplate(w, r, "misc.html", data)
 }
