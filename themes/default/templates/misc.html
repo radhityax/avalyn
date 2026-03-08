@@ -1,10 +1,10 @@
-<title>{{.Site_Title}}</title>
+<title>{{ .Site_Title }}</title>
 <body>
 	<main>
 	<ul class="list-posts">
         {{range .Posts}}
         <li>
-			<p>{{.Date}} <a href="/blog/{{.Slug}}">{{.Title}}</a></p>
+			<p>{{.Date}} <a href="/misc/{{.Slug}}">{{.Title}}</a></p>
             <div>{{.HTML | safeHTML}}</div>
         </li>
         {{else}}

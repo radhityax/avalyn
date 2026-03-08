@@ -22,13 +22,13 @@ $ make
 and then run the program.
 
 ```
-$ ./avalyn serve
+$ ./avalyn -s
 ```
 
 if you feel confused, you can get help with:
 
 ```
-$ ./avalyn help
+$ ./avalyn -h
 ```
 
 # features

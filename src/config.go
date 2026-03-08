@@ -8,7 +8,7 @@ var version string = "beta"
 var register_browser_mode int = 0
 
 // i bet you already know what they means
-var title string = "avalyn"
-var subtitle string = "an absurd web"
+var site_title string = "avalyn"
+var site_subtitle string = "an absurd web"
 
 var theme string = "default"

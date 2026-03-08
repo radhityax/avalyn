@@ -136,3 +136,13 @@ func migrateHugo(path string) {
 		fmt.Println("Error walking through the content directory:", err)
 	}
 }
+
+func printHelp() {
+     fmt.Println("usage: avalyn <flag>")
+     fmt.Println("-b, backup")
+     fmt.Println("-h, help")
+     fmt.Println("-r, register")
+     fmt.Println("-m <path>, migrate from hugo")
+     fmt.Println("-s, serve")
+     fmt.Println("-v, version")
+}
