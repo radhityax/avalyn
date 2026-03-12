@@ -1,13 +1,19 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
-	"golang.org/x/crypto/bcrypt"
 	"html/template"
-	_ "modernc.org/sqlite"
 	"net/http"
+	_ "os"
 	"time"
-    "os"
+
+	"golang.org/x/crypto/bcrypt"
+	_ "modernc.org/sqlite"
+
+	"golang.org/x/time/rate"
+	"sync"
 )
 
 var tmplFuncs = template.FuncMap{
@@ -22,22 +28,48 @@ var tmplFuncs = template.FuncMap{
 	},
 }
 
+var (
+	loginLimiters = make(map[string]*rate.Limiter)
+	loginMu       sync.Mutex
+)
+
+func getLoginLimiter(ip string) *rate.Limiter {
+	loginMu.Lock()
+	defer loginMu.Unlock()
+
+	limiter, exists := loginLimiters[ip]
+	if !exists {
+		limiter = rate.NewLimiter(rate.Every(time.Minute/5), 5)
+		loginLimiters[ip] = limiter
+	}
+	return limiter
+}
 func loginPage(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
+		ip := r.RemoteAddr
+		if !getLoginLimiter(ip).Allow() {
+			http.Error(w, "too many login attempts", 429)
+			return
+		}
+		cookie, err := r.Cookie("csrf_token")
+		if err != nil || cookie.Value != r.FormValue("csrf_token") {
+			http.Error(w, "invalid csrf", 403)
+			return
+		}
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 		var hash string
 		var userID int
-		err := db.QueryRow(`SELECT id, password_hash 
+		err = db.QueryRow(`SELECT id, password_hash 
 		FROM users WHERE username=?`,
 			username).Scan(&userID, &hash)
 		if err != nil {
-			http.Error(w, "username not found", 401)
+			http.Error(w, "invalid username or password", 401)
 			return
 		}
 		if bcrypt.CompareHashAndPassword([]byte(hash),
 			[]byte(password)) != nil {
-			http.Error(w, "wrong password", 401)
+			http.Error(w, "invalid username or password", 401)
 			return
 		}
 		createSession(w, userID)
@@ -49,6 +81,11 @@ func loginPage(w http.ResponseWriter, r *http.Request) {
 
 func signupPage(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
+		cookie, err := r.Cookie("csrf_token")
+		if err != nil || cookie.Value != r.FormValue("csrf_token") {
+			http.Error(w, "invalid csrf", 403)
+			return
+		}
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 		hash, err := bcrypt.GenerateFromPassword([]byte(password),
@@ -99,7 +136,7 @@ func dashboardPage(w http.ResponseWriter, r *http.Request) {
 	if page < 1 {
 		page = 1
 	}
-    limit := 6
+	limit := 6
 	offset := (page - 1) * limit
 
 	rows, err := db.Query(`SELECT id, date, author, type, title, slug, content, status
@@ -143,15 +180,15 @@ func dashboardPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Posts []Post
-		Miscs []Post
-		Page  int
-        Site_Title string
+		Posts      []Post
+		Miscs      []Post
+		Page       int
+		Site_Title string
 	}{
-		Posts: posts,
-		Miscs: miscs,
-		Page:  page,
-        Site_Title: site_title,
+		Posts:      posts,
+		Miscs:      miscs,
+		Page:       page,
+		Site_Title: site_title,
 	}
 
 	renderTemplate(w, r, "dashboard.html", data)
@@ -190,29 +227,22 @@ func indexPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Posts []Post
-		Page  int
-        Title string
-        Site_Title string
-        Site_Subtitle string
+		Posts         []Post
+		Page          int
+		Title         string
+		Site_Title    string
+		Site_Subtitle string
 	}{
-		Posts: posts,
-		Page:  page,
-        Site_Title: site_title,
-        Site_Subtitle: site_subtitle,
+		Posts:         posts,
+		Page:          page,
+		Site_Title:    site_title,
+		Site_Subtitle: site_subtitle,
 	}
 	renderTemplate(w, r, "index.html", data)
 }
 
 func renderTemplate(w http.ResponseWriter, r *http.Request, filename string, data interface{}) {
 
-    directoryPath := "./themes"
-    
-    if stat, err := os.Stat(directoryPath); err == nil && stat.IsDir() {
-    } else if os.IsNotExist(err) {
-    fmt.Printf("'%s' not exist. let me create first", directoryPath)
-    os.MkdirAll(directoryPath, 0755)
-    }
 	themePath := "themes/" + theme + "/templates/"
 
 	tmpl, err := template.New(filename).Funcs(tmplFuncs).ParseFiles(themePath + filename)
@@ -244,33 +274,66 @@ func renderTemplate(w http.ResponseWriter, r *http.Request, filename string, dat
 	_, valid := checkSession(w, r)
 	username := ""
 
+	csrfToken := generateCSRFToken()
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "csrf_token",
+		Value:    csrfToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteStrictMode,
+	})
+
 	if valid {
 		username = getUsername(w, r)
 	}
 
-	var d map[string]interface{}
-	if original, ok := data.(map[string]interface{}); ok {
-		d = original
+	commonData := map[string]interface{}{
+		"CSRF":          csrfToken,
+		"Logged":        valid,
+		"Username":      username,
+		"Site_Title":    site_title,
+		"Site_Subtitle": site_subtitle,
+	}
+
+	var templateData interface{}
+	if data == nil {
+		templateData = commonData
+	} else if m, ok := data.(map[string]interface{}); ok {
+		for k, v := range commonData {
+			m[k] = v
+		}
+		templateData = m
 	} else {
-		d = make(map[string]interface{})
+		templateData = data
 	}
 
-	d["Logged"] = valid
-	d["Username"] = username
-    d["Site_Title"] = site_title
-    d["Site_Subtitle"] = site_subtitle
+	headerData := map[string]interface{}{
+		"CSRF":          csrfToken,
+		"Logged":        valid,
+		"Username":      username,
+		"Site_Title":    site_title,
+		"Site_Subtitle": site_subtitle,
+	}
 
-	if err := header.Execute(w, d); err != nil {
+	if err := header.Execute(w, headerData); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if err := tmpl.Execute(w, data); err != nil {
+	if err := tmpl.Execute(w, templateData); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := footer.Execute(w, d); err != nil {
+	if err := footer.Execute(w, headerData); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+func generateCSRFToken() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }

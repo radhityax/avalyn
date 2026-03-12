@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"database/sql"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,8 +51,7 @@ func backup() {
 	}
 	defer db.Close()
 
-
-rows, err := db.Query(`SELECT type,title,content,slug FROM posts`)
+	rows, err := db.Query(`SELECT type,title,content,slug FROM posts`)
 	if err != nil {
 		return
 	}
@@ -138,11 +138,75 @@ func migrateHugo(path string) {
 }
 
 func printHelp() {
-     fmt.Println("usage: avalyn <flag>")
-     fmt.Println("-b, backup")
-     fmt.Println("-h, help")
-     fmt.Println("-r, register")
-     fmt.Println("-m <path>, migrate from hugo")
-     fmt.Println("-s, serve")
-     fmt.Println("-v, version")
+	fmt.Println("usage: avalyn <flag>")
+	fmt.Println("-b, backup")
+	fmt.Println("-c, copy theme")
+	fmt.Println("-h, help")
+	fmt.Println("-r, register")
+	fmt.Println("-m <path>, migrate from hugo")
+	fmt.Println("-s, serve")
+	fmt.Println("-v, version")
+}
+
+func copyTheme() error {
+	themeDir := filepath.Join("themes", theme)
+	srcTemplates := "templates"
+	dstTemplates := filepath.Join(themeDir, "templates")
+	if err := copyDir(srcTemplates, dstTemplates); err != nil {
+		return fmt.Errorf("error copying templates: %v", err)
+	}
+
+	srcStatic := "static"
+	dstStatic := filepath.Join(themeDir, "static")
+	if err := copyDir(srcStatic, dstStatic); err != nil {
+		return fmt.Errorf("error copying static: %v", err)
+	}
+
+	fmt.Println("theme copied successfully")
+	return nil
+}
+
+func copyDir(src, dst string) error {
+	err := os.MkdirAll(dst, 0755)
+	if err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	return err
 }

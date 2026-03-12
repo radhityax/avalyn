@@ -19,6 +19,7 @@ init:
 	go get modernc.org/sqlite
 	go get golang.org/x/crypto/bcrypt
 	go get github.com/yuin/goldmark
+	go get golang.org/x/time/rate
 
 tidy:
 	go mod tidy

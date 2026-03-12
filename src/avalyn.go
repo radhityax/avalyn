@@ -16,6 +16,8 @@ import (
 
 var db *sql.DB
 
+var csrfKey = generateCSRFKey()
+
 type Post struct {
 	ID      int
 	Date    string
@@ -126,6 +128,9 @@ func main() {
 	} else if os.Args[1] == "-b" {
 		backup()
 		return
+	} else if os.Args[1] == "-c" {
+		copyTheme()
+		return
 	} else if os.Args[1] == "-v" {
 		fmt.Printf("avalyn - %s\n", version)
 		fmt.Println("github.com/radhityax/avalyn")
@@ -146,7 +151,15 @@ func main() {
 	}
 }
 
+func generateCSRFKey() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
 func createSession(w http.ResponseWriter, userID int) {
+	db.Exec(`DELETE FROM sessions WHERE user_id = ?`, userID)
+
 	sessionID := generateSessionID()
 	expiry := time.Now().Add(1 * time.Hour)
 	_, err := db.Exec(`INSERT INTO sessions(id, user_id, expiry) VALUES (?, ?, ?)`,
@@ -160,7 +173,8 @@ func createSession(w http.ResponseWriter, userID int) {
 		Value:    sessionID,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
+		SameSite: http.SameSiteStrictMode,
 		Expires:  expiry,
 	})
 }
