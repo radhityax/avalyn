@@ -5,28 +5,28 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"golang.org/x/crypto/bcrypt"
 	"log"
+	_ "modernc.org/sqlite"
 	"net/http"
-	"time"
 	"os"
 	"strings"
-	"golang.org/x/crypto/bcrypt"
-	_ "modernc.org/sqlite"
+	"time"
 )
 
 var db *sql.DB
 
 type Post struct {
 	ID      int
-	Date	string
+	Date    string
 	Title   string
-	Type	string
-	Author	string
+	Type    string
+	Author  string
 	Content string
-	Slug	string
-	Status	string
+	Slug    string
+	Status  string
 	HTML    string
-	Pass	string
+	Pass    string
 }
 
 func main() {
@@ -73,35 +73,34 @@ func main() {
 		log.Fatal(err)
 	}
 
-
 	if len(os.Args) == 1 {
 
 		return
 	} else if os.Args[1] == "-s" {
 		http.HandleFunc("/", indexPage)
 
-		http.HandleFunc("/login", 
-		func (w http.ResponseWriter, r *http.Request) {
-			if _, err := r.Cookie("session"); err == nil {
-				http.Redirect(w, r, "/dashboard", 302)
-			} else {
-				loginPage(w, r)
-			}
-		})
-		
-		http.HandleFunc("/register", 
-		func (w http.ResponseWriter, r *http.Request) {
-			if _, err := r.Cookie("session"); err == nil {
-				http.Redirect(w, r, "/dashboard", 302)
-			} else {
-				if (register_browser_mode > 0) {
-					signupPage(w, r)
+		http.HandleFunc("/login",
+			func(w http.ResponseWriter, r *http.Request) {
+				if _, err := r.Cookie("session"); err == nil {
+					http.Redirect(w, r, "/dashboard", 302)
 				} else {
-					http.Redirect(w, r, "/", 302)
+					loginPage(w, r)
 				}
-			}
-		})
-		
+			})
+
+		http.HandleFunc("/register",
+			func(w http.ResponseWriter, r *http.Request) {
+				if _, err := r.Cookie("session"); err == nil {
+					http.Redirect(w, r, "/dashboard", 302)
+				} else {
+					if register_browser_mode > 0 {
+						signupPage(w, r)
+					} else {
+						http.Redirect(w, r, "/", 302)
+					}
+				}
+			})
+
 		http.HandleFunc("/logout", logoutHandler)
 		http.HandleFunc("/dashboard", authMiddleware(dashboardPage))
 
@@ -111,12 +110,11 @@ func main() {
 		http.HandleFunc("/edit/", authMiddleware(editPage))
 		http.HandleFunc("/delete/", authMiddleware(deletePage))
 
-
 		http.HandleFunc("/misc/", pageRouter(2))
 
 		staticDir := fmt.Sprintf("themes/%s/static", theme)
 		http.Handle("/static/", http.StripPrefix("/static/",
-		http.FileServer(http.Dir(staticDir))))
+			http.FileServer(http.Dir(staticDir))))
 
 		fmt.Println("avalyn started at http://localhost:1112")
 		err := http.ListenAndServe(":1112", nil)
@@ -136,14 +134,14 @@ func main() {
 		registerAccount()
 		return
 	} else if os.Args[1] == "-m" {
-    if len(os.Args) < 3 {
-    fmt.Println("not enough")
-    return
-}
-			migrateHugo(os.Args[2])
+		if len(os.Args) < 3 {
+			fmt.Println("not enough")
 			return
+		}
+		migrateHugo(os.Args[2])
+		return
 	} else {
-    printHelp()
+		printHelp()
 		return
 	}
 }
@@ -151,19 +149,19 @@ func main() {
 func createSession(w http.ResponseWriter, userID int) {
 	sessionID := generateSessionID()
 	expiry := time.Now().Add(1 * time.Hour)
-	_, err := db.Exec(`INSERT INTO sessions(id, user_id, expiry) VALUES (?, ?, ?)`, 
-	sessionID, userID, expiry)
+	_, err := db.Exec(`INSERT INTO sessions(id, user_id, expiry) VALUES (?, ?, ?)`,
+		sessionID, userID, expiry)
 
 	if err != nil {
 		log.Println("create session error:", err)
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name:		"session",
-		Value:		sessionID,
-		Path:		"/",
-		HttpOnly:	true,
-		Secure:		true,
-		Expires:	expiry,
+		Name:     "session",
+		Value:    sessionID,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		Expires:  expiry,
 	})
 }
 
@@ -177,13 +175,13 @@ func checkSession(w http.ResponseWriter, r *http.Request) (int, bool) {
 	var expiry time.Time
 
 	err = db.QueryRow(`SELECT user_id, expiry FROM sessions WHERE id = ?`,
-	cookie.Value).Scan(&userID, &expiry)
+		cookie.Value).Scan(&userID, &expiry)
 
 	if err != nil || time.Now().After(expiry) {
 		http.SetCookie(w, &http.Cookie{
-			Name: "session",
-			Value: "",
-			Path: "/",
+			Name:   "session",
+			Value:  "",
+			Path:   "/",
 			MaxAge: -1,
 		})
 		return 0, false
@@ -194,8 +192,8 @@ func checkSession(w http.ResponseWriter, r *http.Request) (int, bool) {
 func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, valid := checkSession(w, r)
-		if !valid{
-			http.Redirect(w, r,"/login", 303)
+		if !valid {
+			http.Redirect(w, r, "/login", 303)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -211,7 +209,7 @@ func generateSessionID() string {
 	return hex.EncodeToString(b)
 }
 
-func getUsername(w http.ResponseWriter, r *http.Request) (string) {
+func getUsername(w http.ResponseWriter, r *http.Request) string {
 	if xxx, err := r.Cookie("session"); err == nil {
 		var id int
 		var user string
@@ -221,9 +219,9 @@ func getUsername(w http.ResponseWriter, r *http.Request) (string) {
 		}
 
 		err = db.QueryRow("SELECT username FROM users WHERE id=?",
-		id).Scan(&user)
+			id).Scan(&user)
 		return user
-	} 
+	}
 	return ""
 }
 
@@ -258,10 +256,10 @@ func isUnlocked(r *http.Request, slug string) bool {
 }
 
 func setUnlockedCookie(w http.ResponseWriter, slug string) {
-	cookie := &http.Cookie {
-		Name: "unlocked_" + slug,
-		Value: "1",
-		Path: "/",
+	cookie := &http.Cookie{
+		Name:   "unlocked_" + slug,
+		Value:  "1",
+		Path:   "/",
 		MaxAge: 3600 * 1,
 	}
 	http.SetCookie(w, cookie)
