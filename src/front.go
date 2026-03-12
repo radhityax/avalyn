@@ -52,7 +52,8 @@ func loginPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		cookie, err := r.Cookie("csrf_token")
-		if err != nil || cookie.Value != r.FormValue("csrf_token") {
+		formToken := r.FormValue("csrf_token")
+		if err != nil || cookie.Value != formToken {
 			http.Error(w, "invalid csrf", 403)
 			return
 		}
@@ -267,12 +268,12 @@ func renderTemplate(w http.ResponseWriter, r *http.Request, filename string, dat
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := head.Execute(w, data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+
 	_, valid := checkSession(w, r)
 	username := ""
+	if valid {
+		username = getUsername(w, r)
+	}
 
 	csrfToken := generateCSRFToken()
 
@@ -284,10 +285,6 @@ func renderTemplate(w http.ResponseWriter, r *http.Request, filename string, dat
 		Secure:   false,
 		SameSite: http.SameSiteStrictMode,
 	})
-
-	if valid {
-		username = getUsername(w, r)
-	}
 
 	commonData := map[string]interface{}{
 		"CSRF":          csrfToken,
@@ -315,6 +312,11 @@ func renderTemplate(w http.ResponseWriter, r *http.Request, filename string, dat
 		"Username":      username,
 		"Site_Title":    site_title,
 		"Site_Subtitle": site_subtitle,
+	}
+
+	if err := head.Execute(w, data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	if err := header.Execute(w, headerData); err != nil {
