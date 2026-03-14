@@ -14,9 +14,11 @@ import (
 func Page(option int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var (
-			p      Post
-			slug   string
-			column string
+			p        Post
+			slug     string
+			author   string
+			column   string
+			pathPart string
 		)
 		gm := goldmark.New(
 			goldmark.WithRendererOptions(
@@ -24,12 +26,33 @@ func Page(option int) http.HandlerFunc {
 			),
 		)
 		if option == 1 {
-			slug = strings.TrimPrefix(r.URL.Path, "/blog/")
+			pathPart = "/blog/"
 			column = "blog"
 		} else if option == 2 {
-			slug = strings.TrimPrefix(r.URL.Path, "/misc/")
+			pathPart = "/misc/"
 			column = "misc"
 		} else {
+			http.NotFound(w, r)
+			return
+		}
+
+		path := strings.TrimPrefix(r.URL.Path, pathPart)
+		parts := strings.SplitN(path, "/", 2)
+
+		if len(parts) == 1 && parts[0] != "" {
+			slug = parts[0]
+			author = ""
+		} else if len(parts) == 2 {
+			author = parts[0]
+			slug = parts[1]
+		} else {
+			if option == 2 {
+				miscIndex(w, r)
+				return
+			} else if option == 1 {
+				blogIndex(w, r)
+				return
+			}
 			http.NotFound(w, r)
 			return
 		}
@@ -49,15 +72,28 @@ func Page(option int) http.HandlerFunc {
 		_, valid := checkSession(w, r)
 		var err error
 
-		if valid {
-			err = db.QueryRow(`SELECT id, date, author, type, title, content, status, thumbnail, youtube 
-			FROM posts WHERE slug=? AND type=?`, slug, column).
-				Scan(&p.ID, &p.Date, &p.Author, &p.Type, &p.Title, &p.Content, &p.Status, &p.Thumbnail, &p.Youtube)
+		if author != "" {
+			if valid {
+				err = db.QueryRow(`SELECT id, date, author, type, title, content, status, thumbnail, youtube 
+				FROM posts WHERE slug=? AND author=? AND type=?`, slug, author, column).
+					Scan(&p.ID, &p.Date, &p.Author, &p.Type, &p.Title, &p.Content, &p.Status, &p.Thumbnail, &p.Youtube)
+			} else {
+				err = db.QueryRow(`SELECT id, date, author, type, title, content, status, pass, thumbnail, youtube 
+				FROM posts 
+				WHERE slug=? AND author=? AND status='post' AND type=?`, slug, author, column).
+					Scan(&p.ID, &p.Date, &p.Author, &p.Type, &p.Title, &p.Content, &p.Status, &p.Pass, &p.Thumbnail, &p.Youtube)
+			}
 		} else {
-			err = db.QueryRow(`SELECT id, date, author, type, title, content, status, pass, thumbnail, youtube 
-			FROM posts 
-			WHERE slug=? AND status='post' AND type=?`, slug, column).
-				Scan(&p.ID, &p.Date, &p.Author, &p.Type, &p.Title, &p.Content, &p.Status, &p.Pass, &p.Thumbnail, &p.Youtube)
+			if valid {
+				err = db.QueryRow(`SELECT id, date, author, type, title, content, status, thumbnail, youtube 
+				FROM posts WHERE slug=? AND type=?`, slug, column).
+					Scan(&p.ID, &p.Date, &p.Author, &p.Type, &p.Title, &p.Content, &p.Status, &p.Thumbnail, &p.Youtube)
+			} else {
+				err = db.QueryRow(`SELECT id, date, author, type, title, content, status, pass, thumbnail, youtube 
+				FROM posts 
+				WHERE slug=? AND status='post' AND type=?`, slug, column).
+					Scan(&p.ID, &p.Date, &p.Author, &p.Type, &p.Title, &p.Content, &p.Status, &p.Pass, &p.Thumbnail, &p.Youtube)
+			}
 		}
 
 		if err != nil {
@@ -76,7 +112,25 @@ func Page(option int) http.HandlerFunc {
 			p.HTML = sb.String()
 		}
 
-		renderTemplate(w, r, "page.html", p)
+		profile := getUserProfile(p.Author)
+
+		renderTemplate(w, r, "page.html", map[string]interface{}{
+			"ID":                  p.ID,
+			"Date":                p.Date,
+			"Author":              p.Author,
+			"Type":                p.Type,
+			"Title":               p.Title,
+			"Slug":                p.Slug,
+			"Content":             p.Content,
+			"Status":              p.Status,
+			"Pass":                p.Pass,
+			"Thumbnail":           p.Thumbnail,
+			"Youtube":             p.Youtube,
+			"HTML":                p.HTML,
+			"Profile_Name":        profile.Name,
+			"Profile_Description": profile.Description,
+			"Profile_Image":       profile.Image,
+		})
 	}
 }
 
@@ -233,11 +287,11 @@ func editPage(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "db update error", http.StatusInternalServerError)
 			return
 		}
-		prefix := "/"
+		prefix := "/" + p.Author + "/"
 		if xtype == "blog" {
-			prefix = "/blog/"
+			prefix += "blog/"
 		} else if xtype == "misc" {
-			prefix = "/misc/"
+			prefix += "misc/"
 		}
 
 		http.Redirect(w, r, prefix+newSlug, http.StatusSeeOther)

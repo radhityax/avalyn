@@ -6,7 +6,7 @@
     <ul>
         {{range .Posts}}
         <li>
-            <a href="/blog/{{.Slug}}">{{.Title}}</a> |
+            <a href="/{{.Author}}/blog/{{.Slug}}">{{.Title}}</a> |
             <a href="/edit/{{.Slug}}">Edit</a> |
             <a href="/delete/{{.Slug}}" onclick="return confirm('y or n');">Delete</a>
         </li>
@@ -31,7 +31,7 @@
     <ul>
         {{range .Miscs}}
         <li>
-            <a href="/misc/{{.Slug}}">{{.Title}}</a> |
+            <a href="/{{.Author}}/misc/{{.Slug}}">{{.Title}}</a> |
             <a href="/edit/{{.Slug}}">Edit</a> |
             <a href="/delete/{{.Slug}}" onclick="return confirm('y or n');">Delete</a>
         </li>

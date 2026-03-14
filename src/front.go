@@ -227,6 +227,7 @@ func indexPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
+
 	var posts []Post
 	for rows.Next() {
 		var p Post
@@ -378,10 +379,35 @@ func settingsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var username string
-	err := db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
+	var isAdmin bool
+	var profileName, profileDesc, profileImg string
+	var userPagination, userRssLimit int
+	var userEnableRSS bool
+	err := db.QueryRow("SELECT username, is_admin, profile_name, profile_description, profile_image, pagination_limit, enable_rss, rss_limit FROM users WHERE id = ?", userID).Scan(&username, &isAdmin, &profileName, &profileDesc, &profileImg, &userPagination, &userEnableRSS, &userRssLimit)
 	if err != nil {
-		http.Error(w, "failed to get username", http.StatusInternalServerError)
+		http.Error(w, "failed to get user", http.StatusInternalServerError)
 		return
+	}
+
+	getSettingsData := func(errMsg, successMsg string) map[string]interface{} {
+		return map[string]interface{}{
+			"Username":           username,
+			"IsAdmin":            isAdmin,
+			"ProfileName":        profileName,
+			"ProfileDescription": profileDesc,
+			"ProfileImage":       profileImg,
+			"UserPagination":     userPagination,
+			"UserEnableRSS":      userEnableRSS,
+			"UserRssLimit":       userRssLimit,
+			"PaginationLimit":    pagination_limit,
+			"FrontPageType":      front_page_type,
+			"FrontPageCustom":    front_page_custom,
+			"SiteTitle":          site_title,
+			"SiteSubtitle":       site_subtitle,
+			"SiteURL":            site_url,
+			"Error":              errMsg,
+			"Success":            successMsg,
+		}
 	}
 
 	if r.Method == http.MethodPost {
@@ -393,19 +419,67 @@ func settingsPage(w http.ResponseWriter, r *http.Request) {
 
 		action := r.FormValue("action")
 
+		if action == "profile" {
+			name := r.FormValue("profile_name")
+			desc := r.FormValue("profile_description")
+			img := r.FormValue("profile_image")
+
+			_, err := db.Exec("UPDATE users SET profile_name = ?, profile_description = ?, profile_image = ? WHERE id = ?", name, desc, img, userID)
+			if err != nil {
+				http.Error(w, "db error", http.StatusInternalServerError)
+				return
+			}
+
+			profileName = name
+			profileDesc = desc
+			profileImg = img
+
+			renderTemplate(w, r, "settings.html", getSettingsData("", "profile updated"))
+			return
+		}
+
+		if action == "preferences" {
+			pagLimit := r.FormValue("pagination_limit")
+			rssLimit := r.FormValue("rss_limit")
+			enableRSS := r.FormValue("enable_rss") == "1"
+
+			var pagInt, rssInt int
+			fmt.Sscanf(pagLimit, "%d", &pagInt)
+			fmt.Sscanf(rssLimit, "%d", &rssInt)
+
+			if pagInt < 1 || pagInt > 100 {
+				pagInt = 10
+			}
+			if rssInt < 1 || rssInt > 100 {
+				rssInt = 50
+			}
+
+			enableInt := 0
+			if enableRSS {
+				enableInt = 1
+			}
+
+			_, err := db.Exec("UPDATE users SET pagination_limit = ?, enable_rss = ?, rss_limit = ? WHERE id = ?", pagInt, enableInt, rssInt, userID)
+			if err != nil {
+				http.Error(w, "db error", http.StatusInternalServerError)
+				return
+			}
+
+			userPagination = pagInt
+			userRssLimit = rssInt
+			userEnableRSS = enableRSS
+
+			renderTemplate(w, r, "settings.html", getSettingsData("", "preferences updated"))
+			return
+		}
+
 		if action == "change_password" {
 			currentPassword := r.FormValue("current_password")
 			newPassword := r.FormValue("new_password")
 			confirmPassword := r.FormValue("confirm_password")
 
 			if newPassword != confirmPassword {
-				renderTemplate(w, r, "settings.html", map[string]interface{}{
-					"Username":        username,
-					"PaginationLimit": pagination_limit,
-					"FrontPageType":   front_page_type,
-					"FrontPageCustom": front_page_custom,
-					"Error":           "new password and confirmation don't match",
-				})
+				renderTemplate(w, r, "settings.html", getSettingsData("new password and confirmation don't match", ""))
 				return
 			}
 
@@ -417,13 +491,7 @@ func settingsPage(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if bcrypt.CompareHashAndPassword([]byte(hash), []byte(currentPassword)) != nil {
-				renderTemplate(w, r, "settings.html", map[string]interface{}{
-					"Username":        username,
-					"PaginationLimit": pagination_limit,
-					"FrontPageType":   front_page_type,
-					"FrontPageCustom": front_page_custom,
-					"Error":           "current password is incorrect",
-				})
+				renderTemplate(w, r, "settings.html", getSettingsData("current password is incorrect", ""))
 				return
 			}
 
@@ -439,46 +507,43 @@ func settingsPage(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			renderTemplate(w, r, "settings.html", map[string]interface{}{
-				"Username":        username,
-				"PaginationLimit": pagination_limit,
-				"FrontPageType":   front_page_type,
-				"FrontPageCustom": front_page_custom,
-				"Success":         "password changed successfully",
-			})
+			renderTemplate(w, r, "settings.html", getSettingsData("", "password changed successfully"))
 			return
 		}
 
-		if action == "pagination" {
-			limitStr := r.FormValue("pagination_limit")
-			var limit int
-			_, err := fmt.Sscanf(limitStr, "%d", &limit)
-			if err != nil || limit < 1 || limit > 100 {
-				renderTemplate(w, r, "settings.html", map[string]interface{}{
-					"Username":        username,
-					"PaginationLimit": pagination_limit,
-					"FrontPageType":   front_page_type,
-					"FrontPageCustom": front_page_custom,
-					"Error":           "pagination limit must be between 1 and 100",
-				})
-				return
-			}
+		if !isAdmin {
+			http.Error(w, "admin only", http.StatusForbidden)
+			return
+		}
 
-			err = saveSetting("pagination_limit", limitStr)
+		if action == "site" {
+			title := r.FormValue("site_title")
+			subtitle := r.FormValue("site_subtitle")
+			url := r.FormValue("site_url")
+
+			err := saveSetting("site_title", title)
 			if err != nil {
 				http.Error(w, "db error", http.StatusInternalServerError)
 				return
 			}
 
-			pagination_limit = limit
+			err = saveSetting("site_subtitle", subtitle)
+			if err != nil {
+				http.Error(w, "db error", http.StatusInternalServerError)
+				return
+			}
 
-			renderTemplate(w, r, "settings.html", map[string]interface{}{
-				"Username":        username,
-				"PaginationLimit": pagination_limit,
-				"FrontPageType":   front_page_type,
-				"FrontPageCustom": front_page_custom,
-				"Success":         "pagination limit updated successfully",
-			})
+			err = saveSetting("site_url", url)
+			if err != nil {
+				http.Error(w, "db error", http.StatusInternalServerError)
+				return
+			}
+
+			site_title = title
+			site_subtitle = subtitle
+			site_url = url
+
+			renderTemplate(w, r, "settings.html", getSettingsData("", "site settings updated"))
 			return
 		}
 
@@ -505,21 +570,10 @@ func settingsPage(w http.ResponseWriter, r *http.Request) {
 			front_page_type = fpt
 			front_page_custom = fpc
 
-			renderTemplate(w, r, "settings.html", map[string]interface{}{
-				"Username":        username,
-				"PaginationLimit": pagination_limit,
-				"FrontPageType":   front_page_type,
-				"FrontPageCustom": front_page_custom,
-				"Success":         "front page settings updated",
-			})
+			renderTemplate(w, r, "settings.html", getSettingsData("", "front page settings updated"))
 			return
 		}
 	}
 
-	renderTemplate(w, r, "settings.html", map[string]interface{}{
-		"Username":        username,
-		"PaginationLimit": pagination_limit,
-		"FrontPageType":   front_page_type,
-		"FrontPageCustom": front_page_custom,
-	})
+	renderTemplate(w, r, "settings.html", getSettingsData("", ""))
 }

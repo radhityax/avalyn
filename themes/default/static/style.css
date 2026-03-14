@@ -119,8 +119,35 @@ footer {
 
 	.top-links {
 		font-size: 0.8em;
-		padding: 0.5em;
+		padding: 0.5 em;
 		word-wrap: break-word;
 	}
+}
+
+.profile-box {
+	display: flex;
+	align-items: flex-start;
+	gap: 1em;
+	margin: 1em 0;
+	padding: 0.5em 0;
+}
+
+.profile-image {
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	object-fit: cover;
+	flex-shrink: 0;
+}
+
+.profile-info h3 {
+	margin: 0;
+	font-size: 1em;
+}
+
+.profile-info p {
+	margin: 0.3em 0 0;
+	font-size: 0.85em;
+	color: #555;
 }
 

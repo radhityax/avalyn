@@ -50,11 +50,26 @@ func main() {
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT UNIQUE,
-		password_hash TEXT
+		password_hash TEXT,
+		is_admin INTEGER DEFAULT 0,
+		profile_name TEXT DEFAULT '',
+		profile_description TEXT DEFAULT '',
+		profile_image TEXT DEFAULT '',
+		pagination_limit INTEGER DEFAULT 10,
+		enable_rss INTEGER DEFAULT 1,
+		rss_limit INTEGER DEFAULT 50
 	)`)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	db.Exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`)
+	db.Exec(`ALTER TABLE users ADD COLUMN profile_name TEXT DEFAULT ''`)
+	db.Exec(`ALTER TABLE users ADD COLUMN profile_description TEXT DEFAULT ''`)
+	db.Exec(`ALTER TABLE users ADD COLUMN profile_image TEXT DEFAULT ''`)
+	db.Exec(`ALTER TABLE users ADD COLUMN pagination_limit INTEGER DEFAULT 10`)
+	db.Exec(`ALTER TABLE users ADD COLUMN enable_rss INTEGER DEFAULT 1`)
+	db.Exec(`ALTER TABLE users ADD COLUMN rss_limit INTEGER DEFAULT 50`)
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS sessions (
 		id TEXT PRIMARY KEY,
@@ -99,8 +114,6 @@ func main() {
 
 		return
 	} else if os.Args[1] == "-s" {
-		http.HandleFunc("/", indexPage)
-
 		http.HandleFunc("/login",
 			func(w http.ResponseWriter, r *http.Request) {
 				if _, err := r.Cookie("session"); err == nil {
@@ -135,9 +148,23 @@ func main() {
 
 		http.HandleFunc("/misc/", pageRouter(2))
 
+		http.HandleFunc("/rss", rssFeed)
+
 		staticDir := filepath.Join(themeDir, theme, "static")
 		http.Handle("/static/", http.StripPrefix("/static/",
 			http.FileServer(http.Dir(staticDir))))
+
+		http.HandleFunc("/users", adminMiddleware(usersPage))
+		http.HandleFunc("/toggle-admin", adminMiddleware(toggleAdminHandler))
+		http.HandleFunc("/delete-user", adminMiddleware(deleteUserHandler))
+
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/" {
+				indexPage(w, r)
+				return
+			}
+			userPage(w, r)
+		})
 
 		fmt.Println("avalyn started at http://localhost:1112")
 		err := http.ListenAndServe(":1112", nil)
@@ -161,6 +188,9 @@ func main() {
 		return
 	} else if os.Args[1] == "-r" {
 		registerAccount()
+		return
+	} else if os.Args[1] == "-ra" {
+		registerAdmin()
 		return
 	} else if os.Args[1] == "-m" {
 		if len(os.Args) < 3 {
@@ -231,7 +261,24 @@ func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, valid := checkSession(w, r)
 		if !valid {
-			http.Redirect(w, r, "/login", 303)
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
+func adminMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, valid := checkSession(w, r)
+		if !valid {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		var isAdmin bool
+		db.QueryRow("SELECT is_admin FROM users WHERE id = ?", userID).Scan(&isAdmin)
+		if !isAdmin {
+			http.Error(w, "admin only", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -322,6 +369,21 @@ func loadSettings() {
 	err = db.QueryRow(`SELECT value FROM settings WHERE key = 'front_page_custom'`).Scan(&val)
 	if err == nil {
 		front_page_custom = val
+	}
+
+	err = db.QueryRow(`SELECT value FROM settings WHERE key = 'site_title'`).Scan(&val)
+	if err == nil {
+		site_title = val
+	}
+
+	err = db.QueryRow(`SELECT value FROM settings WHERE key = 'site_subtitle'`).Scan(&val)
+	if err == nil {
+		site_subtitle = val
+	}
+
+	err = db.QueryRow(`SELECT value FROM settings WHERE key = 'site_url'`).Scan(&val)
+	if err == nil {
+		site_url = val
 	}
 }
 

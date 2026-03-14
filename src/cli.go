@@ -15,8 +15,44 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-/* register account */
 func registerAccount() {
+	fmt.Println("username:")
+	getUser := bufio.NewScanner(os.Stdin)
+	getUser.Scan()
+	username := getUser.Text()
+
+	fmt.Println("password:")
+	getPass := bufio.NewScanner(os.Stdin)
+	getPass.Scan()
+	pass := getPass.Text()
+
+	var userCount int
+	db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount)
+
+	isAdminInt := 0
+	if userCount == 0 {
+		isAdminInt = 1
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+	if err != nil {
+		fmt.Println("hash error")
+		return
+	}
+
+	_, err = db.Exec(`INSERT INTO users(username, password_hash, is_admin) VALUES(?,?,?)`,
+		username, hash, isAdminInt)
+	if err != nil {
+		fmt.Println("error creating user:", err)
+		return
+	}
+	fmt.Printf("user '%s' created successfully\n", username)
+	if isAdminInt == 1 {
+		fmt.Println("(admin - first user)")
+	}
+}
+
+func registerAdmin() {
 	fmt.Println("username:")
 	getUser := bufio.NewScanner(os.Stdin)
 	getUser.Scan()
@@ -33,8 +69,13 @@ func registerAccount() {
 		return
 	}
 
-	_, err = db.Exec(`INSERT INTO users(username, password_hash) VALUES(?,?)`,
-		username, hash)
+	_, err = db.Exec(`INSERT INTO users(username, password_hash, is_admin) VALUES(?,?,?)`,
+		username, hash, 1)
+	if err != nil {
+		fmt.Println("error creating admin:", err)
+		return
+	}
+	fmt.Printf("admin '%s' created successfully\n", username)
 }
 
 func backup() {
@@ -156,8 +197,9 @@ func printHelp() {
 	fmt.Println("-c, copy theme")
 	fmt.Println("-h, help")
 	fmt.Println("-i, init setup (run as root)")
-	fmt.Println("-r, register")
 	fmt.Println("-m <path>, migrate from hugo")
+	fmt.Println("-r, register user")
+	fmt.Println("-ra, register admin")
 	fmt.Println("-s, serve")
 	fmt.Println("-v, version")
 }

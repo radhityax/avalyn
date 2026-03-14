@@ -1,0 +1,11 @@
+{{if .Profile_Name}}
+<div class="profile-box">
+	{{if .Profile_Image}}
+	<img src="{{.Profile_Image}}" alt="{{.Profile_Name}}" class="profile-image">
+	{{end}}
+	<div class="profile-info">
+		<h3>{{.Profile_Name}}</h3>
+		<p>{{.Profile_Description}}</p>
+	</div>
+</div>
+{{end}}

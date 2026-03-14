@@ -9,30 +9,30 @@
           <p style="color: green;">{{.Success}}</p>
         {{end}}
         
-        <h3>pagination</h3>
+        <h3>my profile</h3>
         <form action="/settings" method="POST">
-          <label for="pagination_limit">Items per page:</label><br>
-          <input type="number" id="pagination_limit" name="pagination_limit"
-      value="{{.PaginationLimit}}" min="1" max="100" required><br>
-          <input type="hidden" name="action" value="pagination">
+          <label for="profile_name">Name:</label><br>
+          <input type="text" id="profile_name" name="profile_name" value="{{.ProfileName}}"><br>
+          <label for="profile_description">Description:</label><br>
+          <textarea name="profile_description" id="profile_description" rows="3" cols="50">{{.ProfileDescription}}</textarea><br>
+          <label for="profile_image">Image URL:</label><br>
+          <input type="text" id="profile_image" name="profile_image" value="{{.ProfileImage}}" style="width: 300px;"><br>
+          <input type="hidden" name="action" value="profile">
           <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-          <button type="submit">Save Pagination</button>
+          <button type="submit">Save Profile</button>
         </form>
 
-        <h3>front page</h3>
+        <h3>preferences</h3>
         <form action="/settings" method="POST">
-          <label for="front_page_type">Front Page Type:</label><br>
-          <select name="front_page_type" id="front_page_type">
-            <option value="blog" {{if eq .FrontPageType "blog"}}selected{{end}}>Blog List</option>
-            <option value="custom" {{if eq .FrontPageType "custom"}}selected{{end}}>Custom</option>
-          </select><br><br>
-          
-          <label for="front_page_custom">Custom Content (Markdown):</label><br>
-          <textarea name="front_page_custom" id="front_page_custom" rows="5" cols="50">{{.FrontPageCustom}}</textarea><br>
-          
-          <input type="hidden" name="action" value="frontpage">
+          <label for="pagination_limit">Posts per page:</label><br>
+          <input type="number" id="pagination_limit" name="pagination_limit" value="{{.UserPagination}}" min="1" max="100"><br>
+          <label for="enable_rss">Enable RSS:</label>
+          <input type="checkbox" id="enable_rss" name="enable_rss" value="1" {{if .UserEnableRSS}}checked{{end}}><br>
+          <label for="rss_limit">RSS post limit:</label><br>
+          <input type="number" id="rss_limit" name="rss_limit" value="{{.UserRssLimit}}" min="1" max="100"><br>
+          <input type="hidden" name="action" value="preferences">
           <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-          <button type="submit">Save Front Page</button>
+          <button type="submit">Save Preferences</button>
         </form>
 
         <h3>change password</h3>
@@ -49,6 +49,38 @@
           <input type="hidden" name="csrf_token" value="{{.CSRF}}">
           <button type="submit">Change Password</button>
         </form>
+
+        {{if .IsAdmin}}
+        <h3>site (admin)</h3>
+        <form action="/settings" method="POST">
+          <label for="site_title">Title:</label><br>
+          <input type="text" id="site_title" name="site_title" value="{{.SiteTitle}}"><br>
+          <label for="site_subtitle">Subtitle:</label><br>
+          <input type="text" id="site_subtitle" name="site_subtitle" value="{{.SiteSubtitle}}"><br>
+          <label for="site_url">URL:</label><br>
+          <input type="text" id="site_url" name="site_url" value="{{.SiteURL}}" style="width: 300px;"><br>
+          <input type="hidden" name="action" value="site">
+          <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+          <button type="submit">Save Site</button>
+        </form>
+
+        <h3>front page (admin)</h3>
+        <form action="/settings" method="POST">
+          <label for="front_page_type">Front Page Type:</label><br>
+          <select name="front_page_type" id="front_page_type">
+            <option value="blog" {{if eq .FrontPageType "blog"}}selected{{end}}>Blog List</option>
+            <option value="custom" {{if eq .FrontPageType "custom"}}selected{{end}}>Custom</option>
+          </select><br><br>
+          
+          <label for="front_page_custom">Custom Content (Markdown):</label><br>
+          <textarea name="front_page_custom" id="front_page_custom" rows="5" cols="50">{{.FrontPageCustom}}</textarea><br>
+          
+          <input type="hidden" name="action" value="frontpage">
+          <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+          <button type="submit">Save Front Page</button>
+        </form>
+        {{end}}
+
         <p><a href="/dashboard">back to dashboard</a></p>
         </main>
       </body>
