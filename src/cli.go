@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"database/sql"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,8 +15,44 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-/* register account */
 func registerAccount() {
+	fmt.Println("username:")
+	getUser := bufio.NewScanner(os.Stdin)
+	getUser.Scan()
+	username := getUser.Text()
+
+	fmt.Println("password:")
+	getPass := bufio.NewScanner(os.Stdin)
+	getPass.Scan()
+	pass := getPass.Text()
+
+	var userCount int
+	db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount)
+
+	isAdminInt := 0
+	if userCount == 0 {
+		isAdminInt = 1
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+	if err != nil {
+		fmt.Println("hash error")
+		return
+	}
+
+	_, err = db.Exec(`INSERT INTO users(username, password_hash, is_admin) VALUES(?,?,?)`,
+		username, hash, isAdminInt)
+	if err != nil {
+		fmt.Println("error creating user:", err)
+		return
+	}
+	fmt.Printf("user '%s' created successfully\n", username)
+	if isAdminInt == 1 {
+		fmt.Println("(admin - first user)")
+	}
+}
+
+func registerAdmin() {
 	fmt.Println("username:")
 	getUser := bufio.NewScanner(os.Stdin)
 	getUser.Scan()
@@ -32,8 +69,13 @@ func registerAccount() {
 		return
 	}
 
-	_, err = db.Exec(`INSERT INTO users(username, password_hash) VALUES(?,?)`,
-		username, hash)
+	_, err = db.Exec(`INSERT INTO users(username, password_hash, is_admin) VALUES(?,?,?)`,
+		username, hash, 1)
+	if err != nil {
+		fmt.Println("error creating admin:", err)
+		return
+	}
+	fmt.Printf("admin '%s' created successfully\n", username)
 }
 
 func backup() {
@@ -44,14 +86,13 @@ func backup() {
 	}
 
 	var p Post
-	db, err := sql.Open("sqlite", "./avalyn.db")
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return
 	}
 	defer db.Close()
 
-
-rows, err := db.Query(`SELECT type,title,content,slug FROM posts`)
+	rows, err := db.Query(`SELECT type,title,content,slug FROM posts`)
 	if err != nil {
 		return
 	}
@@ -79,7 +120,7 @@ type HugoPost struct {
 }
 
 func migrateHugo(path string) {
-	db, err := sql.Open("sqlite", "./avalyn.db")
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		fmt.Println("Error opening database:", err)
 		return
@@ -137,12 +178,91 @@ func migrateHugo(path string) {
 	}
 }
 
+func setup() {
+	os.MkdirAll(dataDir, 0755)
+	os.Chmod(dataDir, 0777)
+	file, err := os.OpenFile(dbPath, os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		fmt.Println("Error creating database:", err)
+		return
+	}
+	file.Close()
+	os.Chmod(dbPath, 0666)
+	fmt.Println("Setup complete. Database created at", dbPath)
+}
+
 func printHelp() {
-     fmt.Println("usage: avalyn <flag>")
-     fmt.Println("-b, backup")
-     fmt.Println("-h, help")
-     fmt.Println("-r, register")
-     fmt.Println("-m <path>, migrate from hugo")
-     fmt.Println("-s, serve")
-     fmt.Println("-v, version")
+	fmt.Println("usage: avalyn <flag>")
+	fmt.Println("-b, backup")
+	fmt.Println("-c, copy theme")
+	fmt.Println("-h, help")
+	fmt.Println("-i, init setup (run as root)")
+	fmt.Println("-m <path>, migrate from hugo")
+	fmt.Println("-r, register user")
+	fmt.Println("-ra, register admin")
+	fmt.Println("-s, serve")
+	fmt.Println("-v, version")
+}
+
+func copyTheme() error {
+	themeDir := filepath.Join("themes", theme)
+	srcTemplates := "templates"
+	dstTemplates := filepath.Join(themeDir, "templates")
+	if err := copyDir(srcTemplates, dstTemplates); err != nil {
+		return fmt.Errorf("error copying templates: %v", err)
+	}
+
+	srcStatic := "static"
+	dstStatic := filepath.Join(themeDir, "static")
+	if err := copyDir(srcStatic, dstStatic); err != nil {
+		return fmt.Errorf("error copying static: %v", err)
+	}
+
+	fmt.Println("theme copied successfully")
+	return nil
+}
+
+func copyDir(src, dst string) error {
+	err := os.MkdirAll(dst, 0755)
+	if err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	return err
 }

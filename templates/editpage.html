@@ -1,24 +1,136 @@
 <title>edit post: {{.Title}}</title>
+<head>
+	<style>
+		.form-group { margin-bottom: 1em; }
+		label {
+			display: block;
+			margin-bottom: 0.3em;
+			font-weight: bold;
+		}
+		input[type="text"],
+		input[type="password"],
+		input[type="date"],
+		textarea,
+		select {
+			width: 100%;
+			max-width: 500px;
+			padding: 0.5em;
+			border: 1px solid #ccc;
+			border-radius: 4px;
+			font-size: 1em;
+			box-sizing: border-box;
+		}
+		textarea {
+			min-height: 200px;
+			resize: vertical;
+			font-family: monospace;
+		}
+		.form-inline {
+			display: flex;
+			align-items: center;
+			gap: 0.5em;
+		}
+		@media (max-width: 600px) {
+			input[type="text"],
+			input[type="password"],
+			input[type="date"],
+			textarea,
+			select {
+				max-width: 100%;
+			}
+			textarea {
+				min-height: 150px;
+			}
+		}
+	</style>
+</head>
 <body>
 	<main>
 	<h1>Edit Post</h1>
+	{{if .Error}}
+		<p style="color: red;">{{.Error}}</p>
+	{{end}}
 	<form method="POST">
-		<label>Title:</label><br>
-		<input type="text" name="page_title" value="{{.Title}}"><br><br>
-		<input id="date" name="date" value="{{.Date}}" type="date">
-		<br>
-		<label>Content 
-			<a href="https://www.markdownguide.org/basic-syntax/"
-			   rel="nofollow" target="_blank">Markdown</a>:</label><br>
-		<textarea name="content" rows="10" cols="50">{{.Content}}</textarea><br><br>		
-		<label>Select Option:</label><br>
-        <input type="radio" id="post" name="status" value="post" required>
-        <label for="post">Post</label><br>
-        <input type="radio" id="draft" name="status" value="draft" required>
-        <label for="draft">Draft</label><br>
+		<div class="form-group">
+			<label for="page_title">Title:</label>
+			<input type="text" id="page_title" name="page_title" value="{{.Title}}">
+		</div>
+
+		<div class="form-group">
+			<label for="date">Date:</label>
+			<input id="date" name="date" value="{{.Date}}" type="date">
+		</div>
+
+		<div class="form-group">
+			<label>Content <a href="https://www.markdownguide.org/basic-syntax/" rel="nofollow" target="_blank">Markdown</a>:</label>
+			<textarea name="content">{{.Content}}</textarea>
+		</div>
+
+		<div class="form-group">
+			<label for="thumbnail">Thumbnail URL:</label>
+			<input type="text" id="thumbnail" name="thumbnail" value="{{.Thumbnail}}">
+		</div>
+
+		<div class="form-group">
+			<label for="youtube">YouTube ID:</label>
+			<input type="text" id="youtube" name="youtube" value="{{.Youtube}}">
+		</div>
+
+		<div class="form-group">
+			<label for="type">Type:</label>
+			<select name="type" id="type">
+				<option value="blog" {{if eq .Type "blog"}}selected{{end}}>blog</option>
+				<option value="misc" {{if eq .Type "misc"}}selected{{end}}>misc</option>
+			</select>
+		</div>
+
+		<div class="form-group">
+			<label>Status:</label>
+			<div class="form-inline">
+				<input type="radio" id="post" name="status" value="post" {{if eq .Status "post"}}checked{{end}}>
+				<label for="post" style="font-weight: normal;">Post</label>
+			</div>
+			<div class="form-inline">
+				<input type="radio" id="draft" name="status" value="draft" {{if eq .Status "draft"}}checked{{end}}>
+				<label for="draft" style="font-weight: normal;">Draft</label>
+			</div>
+		</div>
+
+		<div class="form-group">
+			<label>Password Protection:</label>
+			{{if .HasPass}}
+				<div class="form-inline">
+					<input type="checkbox" id="remove_pass" name="remove_pass" value="1">
+					<label for="remove_pass" style="font-weight: normal;">Remove password</label>
+				</div>
+				<div style="margin-top: 0.5em;">
+					<label for="current_password" style="font-weight: normal;">Current password (required to save):</label><br>
+					<input type="password" id="current_password" name="current_password" style="max-width: 500px; width: 100%;">
+				</div>
+			{{else}}
+				<div class="form-inline">
+					<input type="checkbox" id="password_toggle" name="password_toggle" value="on">
+					<label for="password_toggle" style="font-weight: normal;">Enable password protection</label>
+				</div>
+				<div id="new_password_field" style="margin-top: 0.5em; display: none;">
+					<label for="page_password" style="font-weight: normal;">New password:</label><br>
+					<input type="password" id="page_password" name="page_password" style="max-width: 500px; width: 100%;">
+				</div>
+			{{end}}
+		</div>
 
 		<button type="submit">Save</button>
 	</form>
+	<p><a href="/dashboard">Back to dashboard</a></p>
 	</main>
-</body>
 
+	<script>
+	{{if not .HasPass}}
+		const pwToggle = document.getElementById('password_toggle');
+		const pwField = document.getElementById('new_password_field');
+		pwToggle.addEventListener('change', () => {
+			pwField.style.display = pwToggle.checked ? 'block' : 'none';
+		});
+	{{end}}
+	</script>
+</body>

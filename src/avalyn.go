@@ -5,45 +5,71 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"log"
-	"net/http"
-	"time"
-	"os"
-	"strings"
 	"golang.org/x/crypto/bcrypt"
+	"log"
 	_ "modernc.org/sqlite"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 )
 
 var db *sql.DB
 
+var csrfKey = generateCSRFKey()
+
 type Post struct {
-	ID      int
-	Date	string
-	Title   string
-	Type	string
-	Author	string
-	Content string
-	Slug	string
-	Status	string
-	HTML    string
-	Pass	string
+	ID        int
+	Date      string
+	Title     string
+	Type      string
+	Author    string
+	Content   string
+	Slug      string
+	Status    string
+	HTML      string
+	Pass      string
+	Thumbnail string
+	Youtube   string
 }
 
 func main() {
+	log.Printf("avalyn started")
+	log.Printf("database: %s", dbPath)
+	log.Printf("themes: %s", themeDir)
+
+	os.MkdirAll(dataDir, 0755)
+
 	var err error
-	db, err = sql.Open("sqlite", "./avalyn.db")
+	db, err = sql.Open("sqlite", dbPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to open database:", err)
 	}
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT UNIQUE,
-		password_hash TEXT
+		password_hash TEXT,
+		is_admin INTEGER DEFAULT 0,
+		profile_name TEXT DEFAULT '',
+		profile_description TEXT DEFAULT '',
+		profile_image TEXT DEFAULT '',
+		pagination_limit INTEGER DEFAULT 10,
+		enable_rss INTEGER DEFAULT 1,
+		rss_limit INTEGER DEFAULT 50
 	)`)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	db.Exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`)
+	db.Exec(`ALTER TABLE users ADD COLUMN profile_name TEXT DEFAULT ''`)
+	db.Exec(`ALTER TABLE users ADD COLUMN profile_description TEXT DEFAULT ''`)
+	db.Exec(`ALTER TABLE users ADD COLUMN profile_image TEXT DEFAULT ''`)
+	db.Exec(`ALTER TABLE users ADD COLUMN pagination_limit INTEGER DEFAULT 10`)
+	db.Exec(`ALTER TABLE users ADD COLUMN enable_rss INTEGER DEFAULT 1`)
+	db.Exec(`ALTER TABLE users ADD COLUMN rss_limit INTEGER DEFAULT 50`)
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS sessions (
 		id TEXT PRIMARY KEY,
@@ -63,45 +89,53 @@ func main() {
 		slug TEXT UNIQUE,
 		content TEXT,
 		status TEXT,
-		pass TEXT
+		pass TEXT,
+		thumbnail TEXT DEFAULT '',
+		youtube TEXT DEFAULT ''
 	)`)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS settings (
+		key TEXT PRIMARY KEY,
+		value TEXT
+	)`)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	db.Exec(`ALTER TABLE posts ADD COLUMN thumbnail TEXT DEFAULT ''`)
+	db.Exec(`ALTER TABLE posts ADD COLUMN youtube TEXT DEFAULT ''`)
+
+	loadSettings()
 
 	if len(os.Args) == 1 {
 
 		return
 	} else if os.Args[1] == "-s" {
-		http.HandleFunc("/", indexPage)
-
-		http.HandleFunc("/login", 
-		func (w http.ResponseWriter, r *http.Request) {
-			if _, err := r.Cookie("session"); err == nil {
-				http.Redirect(w, r, "/dashboard", 302)
-			} else {
-				loginPage(w, r)
-			}
-		})
-		
-		http.HandleFunc("/register", 
-		func (w http.ResponseWriter, r *http.Request) {
-			if _, err := r.Cookie("session"); err == nil {
-				http.Redirect(w, r, "/dashboard", 302)
-			} else {
-				if (register_browser_mode > 0) {
-					signupPage(w, r)
+		http.HandleFunc("/login",
+			func(w http.ResponseWriter, r *http.Request) {
+				if _, err := r.Cookie("session"); err == nil {
+					http.Redirect(w, r, "/dashboard", 302)
 				} else {
-					http.Redirect(w, r, "/", 302)
+					loginPage(w, r)
 				}
-			}
-		})
-		
+			})
+
+		http.HandleFunc("/register",
+			func(w http.ResponseWriter, r *http.Request) {
+				if _, err := r.Cookie("session"); err == nil {
+					http.Redirect(w, r, "/dashboard", 302)
+				} else {
+					if register_browser_mode > 0 {
+						signupPage(w, r)
+					} else {
+						http.Redirect(w, r, "/", 302)
+					}
+				}
+			})
+
 		http.HandleFunc("/logout", logoutHandler)
 		http.HandleFunc("/dashboard", authMiddleware(dashboardPage))
 
@@ -110,13 +144,27 @@ func main() {
 		http.HandleFunc("/new", authMiddleware(newPage))
 		http.HandleFunc("/edit/", authMiddleware(editPage))
 		http.HandleFunc("/delete/", authMiddleware(deletePage))
-
+		http.HandleFunc("/settings", authMiddleware(settingsPage))
 
 		http.HandleFunc("/misc/", pageRouter(2))
 
-		staticDir := fmt.Sprintf("themes/%s/static", theme)
+		http.HandleFunc("/rss", rssFeed)
+
+		staticDir := filepath.Join(themeDir, theme, "static")
 		http.Handle("/static/", http.StripPrefix("/static/",
-		http.FileServer(http.Dir(staticDir))))
+			http.FileServer(http.Dir(staticDir))))
+
+		http.HandleFunc("/users", adminMiddleware(usersPage))
+		http.HandleFunc("/toggle-admin", adminMiddleware(toggleAdminHandler))
+		http.HandleFunc("/delete-user", adminMiddleware(deleteUserHandler))
+
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/" {
+				indexPage(w, r)
+				return
+			}
+			userPage(w, r)
+		})
 
 		fmt.Println("avalyn started at http://localhost:1112")
 		err := http.ListenAndServe(":1112", nil)
@@ -128,42 +176,60 @@ func main() {
 	} else if os.Args[1] == "-b" {
 		backup()
 		return
+	} else if os.Args[1] == "-c" {
+		copyTheme()
+		return
 	} else if os.Args[1] == "-v" {
 		fmt.Printf("avalyn - %s\n", version)
 		fmt.Println("github.com/radhityax/avalyn")
 		return
+	} else if os.Args[1] == "-i" {
+		setup()
+		return
 	} else if os.Args[1] == "-r" {
 		registerAccount()
 		return
+	} else if os.Args[1] == "-ra" {
+		registerAdmin()
+		return
 	} else if os.Args[1] == "-m" {
-    if len(os.Args) < 3 {
-    fmt.Println("not enough")
-    return
-}
-			migrateHugo(os.Args[2])
+		if len(os.Args) < 3 {
+			fmt.Println("not enough")
 			return
+		}
+		migrateHugo(os.Args[2])
+		return
 	} else {
-    printHelp()
+		printHelp()
 		return
 	}
 }
 
+func generateCSRFKey() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
 func createSession(w http.ResponseWriter, userID int) {
+	db.Exec(`DELETE FROM sessions WHERE user_id = ?`, userID)
+
 	sessionID := generateSessionID()
 	expiry := time.Now().Add(1 * time.Hour)
-	_, err := db.Exec(`INSERT INTO sessions(id, user_id, expiry) VALUES (?, ?, ?)`, 
-	sessionID, userID, expiry)
+	_, err := db.Exec(`INSERT INTO sessions(id, user_id, expiry) VALUES (?, ?, ?)`,
+		sessionID, userID, expiry)
 
 	if err != nil {
 		log.Println("create session error:", err)
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name:		"session",
-		Value:		sessionID,
-		Path:		"/",
-		HttpOnly:	true,
-		Secure:		true,
-		Expires:	expiry,
+		Name:     "session",
+		Value:    sessionID,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  expiry,
 	})
 }
 
@@ -177,13 +243,13 @@ func checkSession(w http.ResponseWriter, r *http.Request) (int, bool) {
 	var expiry time.Time
 
 	err = db.QueryRow(`SELECT user_id, expiry FROM sessions WHERE id = ?`,
-	cookie.Value).Scan(&userID, &expiry)
+		cookie.Value).Scan(&userID, &expiry)
 
 	if err != nil || time.Now().After(expiry) {
 		http.SetCookie(w, &http.Cookie{
-			Name: "session",
-			Value: "",
-			Path: "/",
+			Name:   "session",
+			Value:  "",
+			Path:   "/",
 			MaxAge: -1,
 		})
 		return 0, false
@@ -194,8 +260,25 @@ func checkSession(w http.ResponseWriter, r *http.Request) (int, bool) {
 func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, valid := checkSession(w, r)
-		if !valid{
-			http.Redirect(w, r,"/login", 303)
+		if !valid {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
+func adminMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, valid := checkSession(w, r)
+		if !valid {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		var isAdmin bool
+		db.QueryRow("SELECT is_admin FROM users WHERE id = ?", userID).Scan(&isAdmin)
+		if !isAdmin {
+			http.Error(w, "admin only", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -211,7 +294,7 @@ func generateSessionID() string {
 	return hex.EncodeToString(b)
 }
 
-func getUsername(w http.ResponseWriter, r *http.Request) (string) {
+func getUsername(w http.ResponseWriter, r *http.Request) string {
 	if xxx, err := r.Cookie("session"); err == nil {
 		var id int
 		var user string
@@ -221,9 +304,9 @@ func getUsername(w http.ResponseWriter, r *http.Request) (string) {
 		}
 
 		err = db.QueryRow("SELECT username FROM users WHERE id=?",
-		id).Scan(&user)
+			id).Scan(&user)
 		return user
-	} 
+	}
 	return ""
 }
 
@@ -258,13 +341,56 @@ func isUnlocked(r *http.Request, slug string) bool {
 }
 
 func setUnlockedCookie(w http.ResponseWriter, slug string) {
-	cookie := &http.Cookie {
-		Name: "unlocked_" + slug,
-		Value: "1",
-		Path: "/",
+	cookie := &http.Cookie{
+		Name:   "unlocked_" + slug,
+		Value:  "1",
+		Path:   "/",
 		MaxAge: 3600 * 1,
 	}
 	http.SetCookie(w, cookie)
+}
+
+func loadSettings() {
+	var val string
+	err := db.QueryRow(`SELECT value FROM settings WHERE key = 'pagination_limit'`).Scan(&val)
+	if err == nil {
+		var limit int
+		_, err := fmt.Sscanf(val, "%d", &limit)
+		if err == nil && limit > 0 {
+			pagination_limit = limit
+		}
+	}
+
+	err = db.QueryRow(`SELECT value FROM settings WHERE key = 'front_page_type'`).Scan(&val)
+	if err == nil {
+		front_page_type = val
+	}
+
+	err = db.QueryRow(`SELECT value FROM settings WHERE key = 'front_page_custom'`).Scan(&val)
+	if err == nil {
+		front_page_custom = val
+	}
+
+	err = db.QueryRow(`SELECT value FROM settings WHERE key = 'site_title'`).Scan(&val)
+	if err == nil {
+		site_title = val
+	}
+
+	err = db.QueryRow(`SELECT value FROM settings WHERE key = 'site_subtitle'`).Scan(&val)
+	if err == nil {
+		site_subtitle = val
+	}
+
+	err = db.QueryRow(`SELECT value FROM settings WHERE key = 'site_url'`).Scan(&val)
+	if err == nil {
+		site_url = val
+	}
+}
+
+func saveSetting(key, value string) error {
+	_, err := db.Exec(`INSERT INTO settings(key, value) VALUES(?, ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
+	return err
 }
 
 func pageRouter(option int) http.HandlerFunc {

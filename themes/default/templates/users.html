@@ -1,0 +1,38 @@
+<title>Users - {{.Site_Title}}</title>
+<body>
+	<main>
+	<h2>Users</h2>
+	<p>Logged in as: <strong>{{.Username}}</strong> {{if .IsAdmin}}(admin){{end}}</p>
+	
+	{{if .Error}}
+		<p style="color: red;">{{.Error}}</p>
+	{{end}}
+
+	{{if .IsAdmin}}
+	<h3>Create New User</h3>
+	<form method="POST">
+		<label>Username: <input type="text" name="username" required></label><br>
+		<label>Password: <input type="password" name="password" required></label><br>
+		<label>Admin: <input type="checkbox" name="is_admin" value="1"></label><br>
+		<button type="submit">Create User</button>
+	</form>
+	{{end}}
+
+	<h3>Existing Users</h3>
+	<ul>
+	{{range .Users}}
+		<li>
+			<strong>{{.Username}}</strong> {{if .IsAdmin}}(admin){{end}}
+			{{if $.IsAdmin}}
+				{{if ne .Username $.Username}}
+					| <a href="/toggle-admin?username={{.Username}}" onclick="return confirm('Toggle admin status for {{.Username}}?');">{{if .IsAdmin}}Remove Admin{{else}}Make Admin{{end}}</a>
+					| <a href="/delete-user?username={{.Username}}" onclick="return confirm('Delete user {{.Username}}?');">Delete</a>
+				{{end}}
+			{{end}}
+		</li>
+	{{end}}
+	</ul>
+
+	<p><a href="/dashboard">Back to Dashboard</a></p>
+	</main>
+</body>

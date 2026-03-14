@@ -6,7 +6,7 @@
     <ul>
         {{range .Posts}}
         <li>
-            <a href="/blog/{{.Slug}}">{{.Title}}</a> |
+            <a href="/{{.Author}}/blog/{{.Slug}}">{{.Title}}</a> |
             <a href="/edit/{{.Slug}}">Edit</a> |
             <a href="/delete/{{.Slug}}" onclick="return confirm('y or n');">Delete</a>
         </li>
@@ -20,7 +20,7 @@
 
         <span>{{.Page}}</span>
 
-        {{if eq (len .Posts) 5}}
+        {{if eq (len .Posts) .Limit}}
             <a href="/dashboard?page={{add .Page 1}}">Next</a>
         {{end}}
     </div>
@@ -31,7 +31,7 @@
     <ul>
         {{range .Miscs}}
         <li>
-            <a href="/misc/{{.Slug}}">{{.Title}}</a> |
+            <a href="/{{.Author}}/misc/{{.Slug}}">{{.Title}}</a> |
             <a href="/edit/{{.Slug}}">Edit</a> |
             <a href="/delete/{{.Slug}}" onclick="return confirm('y or n');">Delete</a>
         </li>
@@ -44,7 +44,7 @@
 
         <span>{{.Page}}</span>
 
-        {{if eq (len .Miscs) 5}}
+        {{if eq (len .Miscs) .Limit}}
             <a href="/dashboard?page={{add .Page 1}}">Next</a>
         {{end}}
 	</main>
