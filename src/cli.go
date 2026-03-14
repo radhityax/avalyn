@@ -45,7 +45,7 @@ func backup() {
 	}
 
 	var p Post
-	db, err := sql.Open("sqlite", "./avalyn.db")
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return
 	}
@@ -79,7 +79,7 @@ type HugoPost struct {
 }
 
 func migrateHugo(path string) {
-	db, err := sql.Open("sqlite", "./avalyn.db")
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		fmt.Println("Error opening database:", err)
 		return
@@ -137,11 +137,25 @@ func migrateHugo(path string) {
 	}
 }
 
+func setup() {
+	os.MkdirAll(dataDir, 0755)
+	os.Chmod(dataDir, 0777)
+	file, err := os.OpenFile(dbPath, os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		fmt.Println("Error creating database:", err)
+		return
+	}
+	file.Close()
+	os.Chmod(dbPath, 0666)
+	fmt.Println("Setup complete. Database created at", dbPath)
+}
+
 func printHelp() {
 	fmt.Println("usage: avalyn <flag>")
 	fmt.Println("-b, backup")
 	fmt.Println("-c, copy theme")
 	fmt.Println("-h, help")
+	fmt.Println("-i, init setup (run as root)")
 	fmt.Println("-r, register")
 	fmt.Println("-m <path>, migrate from hugo")
 	fmt.Println("-s, serve")

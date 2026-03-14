@@ -1,7 +1,6 @@
 PREFIX ?= /usr/local
 BINDIR = $(DESTDIR)$(PREFIX)/bin
 OPTDIR = $(DESTDIR)/opt/avalyn
-VARDIR = $(DESTDIR)/var/lib/avalyn
 SYSCONFDIR = $(DESTDIR)/etc
 
 TARGET = avalyn
@@ -11,7 +10,7 @@ SRC = $(wildcard src/*.go)
 LDFLAGS = -s -w -buildid= -extldflags "-static"
 GOFLAGS = -modcacherw -tags "osusergo,netgo" -trimpath -buildvcs=false
 
-.PHONY: all phone init tidy clean install uninstall service-systemd service-sysvinit
+.PHONY: all phone init tidy clean install uninstall service-systemd service-sysvinit setup
 
 all:
 	CGO_ENABLED=0 GOARCH=amd64 go build $(GOFLAGS) -ldflags='$(LDFLAGS)' -o $(TARGET) $(SRC)
@@ -36,8 +35,10 @@ clean:
 install:
 	install -Dm755 $(TARGET) $(BINDIR)/$(TARGET)
 	install -dm755 $(OPTDIR)/themes
-	cp -r themes/* $(OPTDIR)/themes/ 2>/dev/null || true
-	install -dm755 $(VARDIR)
+	cp -r themes/* $(OPTDIR)/themes/
+
+setup:
+	sudo $(BINDIR)/$(TARGET) -i
 
 uninstall:
 	rm -f $(BINDIR)/$(TARGET)

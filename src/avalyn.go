@@ -35,13 +35,9 @@ type Post struct {
 }
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "-s" {
-		setSystemPaths()
-	}
-
-	log.Printf("Using config directory: %s", configDir)
-	log.Printf("Using theme directory: %s", themeDir)
-	log.Printf("Using database path: %s", dbPath)
+	log.Printf("avalyn started")
+	log.Printf("database: %s", dbPath)
+	log.Printf("themes: %s", themeDir)
 
 	os.MkdirAll(dataDir, 0755)
 
@@ -159,6 +155,9 @@ func main() {
 	} else if os.Args[1] == "-v" {
 		fmt.Printf("avalyn - %s\n", version)
 		fmt.Println("github.com/radhityax/avalyn")
+		return
+	} else if os.Args[1] == "-i" {
+		setup()
 		return
 	} else if os.Args[1] == "-r" {
 		registerAccount()
