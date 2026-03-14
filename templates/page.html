@@ -2,7 +2,13 @@
 <body>
 	<main>
 		<h1>{{.Title}}</h1>
+		{{if .Thumbnail}}
+		<img src="{{.Thumbnail}}" alt="{{.Title}}" style="max-width: 100%;">
+		{{end}}
 		<div>{{.HTML | safeHTML}}</div>
+		{{if .Youtube}}
+		<iframe width="560" height="315" src="https://www.youtube.com/embed/{{.Youtube}}" frameborder="0" allowfullscreen></iframe>
+		{{end}}
 	</main>
 </body>
 

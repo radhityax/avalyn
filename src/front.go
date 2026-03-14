@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	_ "os"
+	"strings"
 	"time"
 
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/renderer/html"
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
 
@@ -32,6 +34,9 @@ var (
 	loginLimiters = make(map[string]*rate.Limiter)
 	loginMu       sync.Mutex
 )
+
+var front_page_type string = "blog"
+var front_page_custom string = ""
 
 func getLoginLimiter(ip string) *rate.Limiter {
 	loginMu.Lock()
@@ -137,7 +142,7 @@ func dashboardPage(w http.ResponseWriter, r *http.Request) {
 	if page < 1 {
 		page = 1
 	}
-	limit := 6
+	limit := pagination_limit
 	offset := (page - 1) * limit
 
 	rows, err := db.Query(`SELECT id, date, author, type, title, slug, content, status
@@ -184,11 +189,13 @@ func dashboardPage(w http.ResponseWriter, r *http.Request) {
 		Posts      []Post
 		Miscs      []Post
 		Page       int
+		Limit      int
 		Site_Title string
 	}{
 		Posts:      posts,
 		Miscs:      miscs,
 		Page:       page,
+		Limit:      limit,
 		Site_Title: site_title,
 	}
 
@@ -196,6 +203,10 @@ func dashboardPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func indexPage(w http.ResponseWriter, r *http.Request) {
+	if front_page_type == "custom" && front_page_custom != "" {
+		renderCustomFrontPage(w, r)
+		return
+	}
 
 	pageStr := r.URL.Query().Get("page")
 	page := 1
@@ -206,7 +217,7 @@ func indexPage(w http.ResponseWriter, r *http.Request) {
 		page = 1
 	}
 
-	limit := 6
+	limit := pagination_limit
 	offset := (page - 1) * limit
 
 	rows, err := db.Query(`SELECT id, date, author, type, title, slug, content,
@@ -230,16 +241,39 @@ func indexPage(w http.ResponseWriter, r *http.Request) {
 	data := struct {
 		Posts         []Post
 		Page          int
+		Limit         int
 		Title         string
 		Site_Title    string
 		Site_Subtitle string
 	}{
 		Posts:         posts,
 		Page:          page,
+		Limit:         limit,
 		Site_Title:    site_title,
 		Site_Subtitle: site_subtitle,
 	}
 	renderTemplate(w, r, "index.html", data)
+}
+
+func renderCustomFrontPage(w http.ResponseWriter, r *http.Request) {
+	gm := goldmark.New(
+		goldmark.WithRendererOptions(
+			html.WithUnsafe(),
+		),
+	)
+	var sb strings.Builder
+	gm.Convert([]byte(front_page_custom), &sb)
+
+	data := struct {
+		HTML          string
+		Site_Title    string
+		Site_Subtitle string
+	}{
+		HTML:          sb.String(),
+		Site_Title:    site_title,
+		Site_Subtitle: site_subtitle,
+	}
+	renderTemplate(w, r, "custom_front.html", data)
 }
 
 func renderTemplate(w http.ResponseWriter, r *http.Request, filename string, data interface{}) {
@@ -338,4 +372,158 @@ func generateCSRFToken() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+func settingsPage(w http.ResponseWriter, r *http.Request) {
+	userID, valid := checkSession(w, r)
+	if !valid {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	var username string
+	err := db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
+	if err != nil {
+		http.Error(w, "failed to get username", http.StatusInternalServerError)
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		cookie, err := r.Cookie("csrf_token")
+		if err != nil || cookie.Value != r.FormValue("csrf_token") {
+			http.Error(w, "invalid csrf", 403)
+			return
+		}
+
+		action := r.FormValue("action")
+
+		if action == "change_password" {
+			currentPassword := r.FormValue("current_password")
+			newPassword := r.FormValue("new_password")
+			confirmPassword := r.FormValue("confirm_password")
+
+			if newPassword != confirmPassword {
+				renderTemplate(w, r, "settings.html", map[string]interface{}{
+					"Username":        username,
+					"PaginationLimit": pagination_limit,
+					"FrontPageType":   front_page_type,
+					"FrontPageCustom": front_page_custom,
+					"Error":           "new password and confirmation don't match",
+				})
+				return
+			}
+
+			var hash string
+			err = db.QueryRow("SELECT password_hash FROM users WHERE id = ?", userID).Scan(&hash)
+			if err != nil {
+				http.Error(w, "db error", http.StatusInternalServerError)
+				return
+			}
+
+			if bcrypt.CompareHashAndPassword([]byte(hash), []byte(currentPassword)) != nil {
+				renderTemplate(w, r, "settings.html", map[string]interface{}{
+					"Username":        username,
+					"PaginationLimit": pagination_limit,
+					"FrontPageType":   front_page_type,
+					"FrontPageCustom": front_page_custom,
+					"Error":           "current password is incorrect",
+				})
+				return
+			}
+
+			newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+			if err != nil {
+				http.Error(w, "hash error", http.StatusInternalServerError)
+				return
+			}
+
+			_, err = db.Exec("UPDATE users SET password_hash = ? WHERE id = ?", newHash, userID)
+			if err != nil {
+				http.Error(w, "db update error", http.StatusInternalServerError)
+				return
+			}
+
+			renderTemplate(w, r, "settings.html", map[string]interface{}{
+				"Username":        username,
+				"PaginationLimit": pagination_limit,
+				"FrontPageType":   front_page_type,
+				"FrontPageCustom": front_page_custom,
+				"Success":         "password changed successfully",
+			})
+			return
+		}
+
+		if action == "pagination" {
+			limitStr := r.FormValue("pagination_limit")
+			var limit int
+			_, err := fmt.Sscanf(limitStr, "%d", &limit)
+			if err != nil || limit < 1 || limit > 100 {
+				renderTemplate(w, r, "settings.html", map[string]interface{}{
+					"Username":        username,
+					"PaginationLimit": pagination_limit,
+					"FrontPageType":   front_page_type,
+					"FrontPageCustom": front_page_custom,
+					"Error":           "pagination limit must be between 1 and 100",
+				})
+				return
+			}
+
+			err = saveSetting("pagination_limit", limitStr)
+			if err != nil {
+				http.Error(w, "db error", http.StatusInternalServerError)
+				return
+			}
+
+			pagination_limit = limit
+
+			renderTemplate(w, r, "settings.html", map[string]interface{}{
+				"Username":        username,
+				"PaginationLimit": pagination_limit,
+				"FrontPageType":   front_page_type,
+				"FrontPageCustom": front_page_custom,
+				"Success":         "pagination limit updated successfully",
+			})
+			return
+		}
+
+		if action == "frontpage" {
+			fpt := r.FormValue("front_page_type")
+			fpc := r.FormValue("front_page_custom")
+
+			if fpt != "blog" && fpt != "custom" {
+				fpt = "blog"
+			}
+
+			err := saveSetting("front_page_type", fpt)
+			if err != nil {
+				http.Error(w, "db error", http.StatusInternalServerError)
+				return
+			}
+
+			err = saveSetting("front_page_custom", fpc)
+			if err != nil {
+				http.Error(w, "db error", http.StatusInternalServerError)
+				return
+			}
+
+			front_page_type = fpt
+			front_page_custom = fpc
+
+			renderTemplate(w, r, "settings.html", map[string]interface{}{
+				"Username":        username,
+				"PaginationLimit": pagination_limit,
+				"FrontPageType":   front_page_type,
+				"FrontPageCustom": front_page_custom,
+				"Success":         "front page settings updated",
+			})
+			return
+		}
+	}
+
+	renderTemplate(w, r, "settings.html", map[string]interface{}{
+		"Username":        username,
+		"PaginationLimit": pagination_limit,
+		"FrontPageType":   front_page_type,
+		"FrontPageCustom": front_page_custom,
+	})
 }

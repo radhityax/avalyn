@@ -1,0 +1,54 @@
+<body>
+        <main>
+        <h2>settings</h2>
+        <p>logged in as: {{.Username}}</p>
+        {{if .Error}}
+          <p style="color: red;">{{.Error}}</p>
+        {{end}}
+        {{if .Success}}
+          <p style="color: green;">{{.Success}}</p>
+        {{end}}
+        
+        <h3>pagination</h3>
+        <form action="/settings" method="POST">
+          <label for="pagination_limit">Items per page:</label><br>
+          <input type="number" id="pagination_limit" name="pagination_limit"
+      value="{{.PaginationLimit}}" min="1" max="100" required><br>
+          <input type="hidden" name="action" value="pagination">
+          <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+          <button type="submit">Save Pagination</button>
+        </form>
+
+        <h3>front page</h3>
+        <form action="/settings" method="POST">
+          <label for="front_page_type">Front Page Type:</label><br>
+          <select name="front_page_type" id="front_page_type">
+            <option value="blog" {{if eq .FrontPageType "blog"}}selected{{end}}>Blog List</option>
+            <option value="custom" {{if eq .FrontPageType "custom"}}selected{{end}}>Custom</option>
+          </select><br><br>
+          
+          <label for="front_page_custom">Custom Content (Markdown):</label><br>
+          <textarea name="front_page_custom" id="front_page_custom" rows="5" cols="50">{{.FrontPageCustom}}</textarea><br>
+          
+          <input type="hidden" name="action" value="frontpage">
+          <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+          <button type="submit">Save Front Page</button>
+        </form>
+
+        <h3>change password</h3>
+        <form action="/settings" method="POST">
+          <label for="current_password">Current Password:</label><br>
+          <input type="password" id="current_password" name="current_password"
+      required><br>
+          <label for="new_password">New Password:</label><br>
+          <input type="password" id="new_password" name="new_password" required><br>
+          <label for="confirm_password">Confirm New Password:</label><br>
+          <input type="password" id="confirm_password" name="confirm_password"
+      required><br>
+          <input type="hidden" name="action" value="change_password">
+          <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+          <button type="submit">Change Password</button>
+        </form>
+        <p><a href="/dashboard">back to dashboard</a></p>
+        </main>
+      </body>

@@ -13,13 +13,13 @@
     </ul>
 
         {{if gt .Page 1}}
-            <a href="/?page={{sub .Page 1}}">Prev</a>
+            <a href="/blog/?page={{sub .Page 1}}">Prev</a>
         {{end}}
 
         <span>{{.Page}}</span>
 
-        {{if eq (len .Posts) 5}}
-            <a href="/?page={{add .Page 1}}">Next</a>
+        {{if eq (len .Posts) .Limit}}
+            <a href="/blog/?page={{add .Page 1}}">Next</a>
         {{end}}
 	</main>
 </body>

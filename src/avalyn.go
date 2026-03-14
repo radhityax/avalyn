@@ -19,16 +19,18 @@ var db *sql.DB
 var csrfKey = generateCSRFKey()
 
 type Post struct {
-	ID      int
-	Date    string
-	Title   string
-	Type    string
-	Author  string
-	Content string
-	Slug    string
-	Status  string
-	HTML    string
-	Pass    string
+	ID        int
+	Date      string
+	Title     string
+	Type      string
+	Author    string
+	Content   string
+	Slug      string
+	Status    string
+	HTML      string
+	Pass      string
+	Thumbnail string
+	Youtube   string
 }
 
 func main() {
@@ -65,15 +67,27 @@ func main() {
 		slug TEXT UNIQUE,
 		content TEXT,
 		status TEXT,
-		pass TEXT
+		pass TEXT,
+		thumbnail TEXT DEFAULT '',
+		youtube TEXT DEFAULT ''
 	)`)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS settings (
+		key TEXT PRIMARY KEY,
+		value TEXT
+	)`)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Migration: add thumbnail and youtube columns if they don't exist
+	db.Exec(`ALTER TABLE posts ADD COLUMN thumbnail TEXT DEFAULT ''`)
+	db.Exec(`ALTER TABLE posts ADD COLUMN youtube TEXT DEFAULT ''`)
+
+	loadSettings()
 
 	if len(os.Args) == 1 {
 
@@ -111,6 +125,7 @@ func main() {
 		http.HandleFunc("/new", authMiddleware(newPage))
 		http.HandleFunc("/edit/", authMiddleware(editPage))
 		http.HandleFunc("/delete/", authMiddleware(deletePage))
+		http.HandleFunc("/settings", authMiddleware(settingsPage))
 
 		http.HandleFunc("/misc/", pageRouter(2))
 
@@ -277,6 +292,34 @@ func setUnlockedCookie(w http.ResponseWriter, slug string) {
 		MaxAge: 3600 * 1,
 	}
 	http.SetCookie(w, cookie)
+}
+
+func loadSettings() {
+	var val string
+	err := db.QueryRow(`SELECT value FROM settings WHERE key = 'pagination_limit'`).Scan(&val)
+	if err == nil {
+		var limit int
+		_, err := fmt.Sscanf(val, "%d", &limit)
+		if err == nil && limit > 0 {
+			pagination_limit = limit
+		}
+	}
+
+	err = db.QueryRow(`SELECT value FROM settings WHERE key = 'front_page_type'`).Scan(&val)
+	if err == nil {
+		front_page_type = val
+	}
+
+	err = db.QueryRow(`SELECT value FROM settings WHERE key = 'front_page_custom'`).Scan(&val)
+	if err == nil {
+		front_page_custom = val
+	}
+}
+
+func saveSetting(key, value string) error {
+	_, err := db.Exec(`INSERT INTO settings(key, value) VALUES(?, ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
+	return err
 }
 
 func pageRouter(option int) http.HandlerFunc {
