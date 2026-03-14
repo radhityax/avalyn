@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -50,23 +51,18 @@ func getLoginLimiter(ip string) *rate.Limiter {
 	return limiter
 }
 func loginPage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	if r.Method == http.MethodPost {
 		ip := r.RemoteAddr
 		if !getLoginLimiter(ip).Allow() {
 			http.Error(w, "too many login attempts", 429)
 			return
 		}
-		cookie, err := r.Cookie("csrf_token")
-		formToken := r.FormValue("csrf_token")
-		if err != nil || cookie.Value != formToken {
-			http.Error(w, "invalid csrf", 403)
-			return
-		}
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 		var hash string
 		var userID int
-		err = db.QueryRow(`SELECT id, password_hash 
+		err := db.QueryRow(`SELECT id, password_hash 
 		FROM users WHERE username=?`,
 			username).Scan(&userID, &hash)
 		if err != nil {
@@ -86,6 +82,7 @@ func loginPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func signupPage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	if r.Method == http.MethodPost {
 		cookie, err := r.Cookie("csrf_token")
 		if err != nil || cookie.Value != r.FormValue("csrf_token") {
@@ -277,8 +274,7 @@ func renderCustomFrontPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func renderTemplate(w http.ResponseWriter, r *http.Request, filename string, data interface{}) {
-
-	themePath := "themes/" + theme + "/templates/"
+	themePath := filepath.Join(themeDir, theme, "templates") + string(filepath.Separator)
 
 	tmpl, err := template.New(filename).Funcs(tmplFuncs).ParseFiles(themePath + filename)
 	if err != nil {
@@ -317,7 +313,7 @@ func renderTemplate(w http.ResponseWriter, r *http.Request, filename string, dat
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   false,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	commonData := map[string]interface{}{

@@ -10,6 +10,7 @@ import (
 	_ "modernc.org/sqlite"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -34,10 +35,20 @@ type Post struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "-s" {
+		setSystemPaths()
+	}
+
+	log.Printf("Using config directory: %s", configDir)
+	log.Printf("Using theme directory: %s", themeDir)
+	log.Printf("Using database path: %s", dbPath)
+
+	os.MkdirAll(dataDir, 0755)
+
 	var err error
-	db, err = sql.Open("sqlite", "./avalyn.db")
+	db, err = sql.Open("sqlite", dbPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to open database:", err)
 	}
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS users (
@@ -83,7 +94,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Migration: add thumbnail and youtube columns if they don't exist
 	db.Exec(`ALTER TABLE posts ADD COLUMN thumbnail TEXT DEFAULT ''`)
 	db.Exec(`ALTER TABLE posts ADD COLUMN youtube TEXT DEFAULT ''`)
 
@@ -129,7 +139,7 @@ func main() {
 
 		http.HandleFunc("/misc/", pageRouter(2))
 
-		staticDir := fmt.Sprintf("themes/%s/static", theme)
+		staticDir := filepath.Join(themeDir, theme, "static")
 		http.Handle("/static/", http.StripPrefix("/static/",
 			http.FileServer(http.Dir(staticDir))))
 
@@ -189,7 +199,7 @@ func createSession(w http.ResponseWriter, userID int) {
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   false,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 		Expires:  expiry,
 	})
 }

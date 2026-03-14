@@ -182,6 +182,7 @@ func editPage(w http.ResponseWriter, r *http.Request) {
 		currentPassword := r.FormValue("current_password")
 		newPassword := r.FormValue("page_password")
 		passwordToggle := r.FormValue("password_toggle")
+		removePass := r.FormValue("remove_pass")
 
 		newSlug := slugify(title)
 
@@ -204,17 +205,23 @@ func editPage(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var passhash string
-		if passwordToggle == "on" && newPassword != "" {
-			passhash, err = hashPassword(newPassword)
-			if err != nil {
-				http.Error(w, "failed to hash password",
-					http.StatusInternalServerError)
-				return
+		if p.Pass != "" {
+			if removePass == "1" {
+				passhash = ""
+			} else {
+				passhash = p.Pass
 			}
-		} else if passwordToggle != "on" {
-			passhash = ""
 		} else {
-			passhash = p.Pass
+			if passwordToggle == "on" && newPassword != "" {
+				passhash, err = hashPassword(newPassword)
+				if err != nil {
+					http.Error(w, "failed to hash password",
+						http.StatusInternalServerError)
+					return
+				}
+			} else {
+				passhash = ""
+			}
 		}
 
 		_, err = db.Exec(`UPDATE posts SET date=?, title=?, slug=?, content=?,

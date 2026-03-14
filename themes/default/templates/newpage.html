@@ -1,4 +1,54 @@
 <title>create post</title>
+<head>
+	<style>
+		.form-group { margin-bottom: 1em; }
+		label {
+			display: block;
+			margin-bottom: 0.3em;
+			font-weight: bold;
+		}
+		input[type="text"],
+		input[type="password"],
+		input[type="date"],
+		textarea,
+		select {
+			width: 100%;
+			max-width: 500px;
+			padding: 0.5em;
+			border: 1px solid #ccc;
+			border-radius: 4px;
+			font-size: 1em;
+			box-sizing: border-box;
+		}
+		textarea {
+			min-height: 200px;
+			resize: vertical;
+			font-family: monospace;
+		}
+		.form-inline {
+			display: flex;
+			align-items: center;
+			gap: 0.5em;
+		}
+		.password-toggle {
+			display: flex;
+			align-items: center;
+			gap: 0.5em;
+		}
+		@media (max-width: 600px) {
+			input[type="text"],
+			input[type="password"],
+			input[type="date"],
+			textarea,
+			select {
+				max-width: 100%;
+			}
+			textarea {
+				min-height: 150px;
+			}
+		}
+	</style>
+</head>
 <body>
 	<main>
 	<h1>create</h1>
@@ -40,20 +90,20 @@
 			<label>Status:</label>
 			<div class="form-inline">
 				<input type="radio" id="post" name="status" value="post" checked>
-				<label for="post" style="font-weight: normal; margin: 0;">Post</label>
+				<label for="post" style="font-weight: normal;">Post</label>
 			</div>
 			<div class="form-inline">
 				<input type="radio" id="draft" name="status" value="draft">
-				<label for="draft" style="font-weight: normal; margin: 0;">Draft</label>
+				<label for="draft" style="font-weight: normal;">Draft</label>
 			</div>
 		</div>
 
 		<div class="form-group">
 			<div class="password-toggle">
 				<input type="checkbox" id="xopt">
-				<label for="xopt" style="font-weight: normal; margin: 0;">Password protect</label>
+				<label for="xopt" style="font-weight: normal;">Password protect</label>
 			</div>
-			<input id="page_password" name="page_password" type="password" placeholder="optional password" style="display: none; margin-top: 0.5em;">
+			<input id="page_password" name="page_password" type="password" placeholder="optional password" style="display: none; margin-top: 0.5em; max-width: 500px; width: 100%;">
 		</div>
 
 		<button type="submit">Create</button>
